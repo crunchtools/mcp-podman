@@ -72,3 +72,26 @@ class SocketConnectionError(ToolError):
 
 class ConfigurationError(ToolError):
     """Server configuration is invalid."""
+
+
+class ServiceNotFoundError(ToolError):
+    """Systemd unit does not exist."""
+
+    def __init__(self, name: str) -> None:
+        safe_name = name[:120] if len(name) > 120 else name
+        super().__init__(f"Systemd unit not found: {safe_name}")
+
+
+class ServiceNotPodmanError(ToolError):
+    """Systemd unit does not manage a Podman container."""
+
+    def __init__(self, name: str) -> None:
+        safe_name = name[:120] if len(name) > 120 else name
+        super().__init__(
+            f"Unit '{safe_name}' is not a Podman container service. "
+            "Only units with /usr/bin/podman in ExecStart are allowed."
+        )
+
+
+class ServiceOperationError(ToolError):
+    """Systemd operation failed."""

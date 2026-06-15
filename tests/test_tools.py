@@ -1,6 +1,6 @@
 """Mocked API tests for all Podman tools."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -311,6 +311,140 @@ class TestSystemTools:
         assert "Images" in result
 
 
+class TestServiceTools:
+    """Tests for systemd service management tools."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        _setup_config()
+
+    async def test_service_list(self) -> None:
+        from mcp_podman_crunchtools.tools.services import service_list
+
+        with patch(
+            "mcp_podman_crunchtools.dbus_client._run_systemctl",
+            return_value=(
+                "acquacotta.crunchtools.com.service loaded active running Podman container\n"
+                "mcp-podman.crunchtools.com.service loaded active running MCP Podman Server"
+            ),
+        ), patch(
+            "mcp_podman_crunchtools.dbus_client._is_podman_unit",
+            return_value=True,
+        ):
+            result = await service_list()
+        assert result["count"] == 2
+
+    async def test_service_status(self) -> None:
+        from mcp_podman_crunchtools.tools.services import service_status
+
+        async def mock_systemctl(*args: str) -> str:
+            if "--property=LoadState" in args:
+                return "loaded"
+            if "--property=ExecStart" in args:
+                return "ExecStart=/usr/bin/podman run --rm test"
+            if "--property=ActiveState" in args:
+                return "active"
+            return "unknown"
+
+        with patch(
+            "mcp_podman_crunchtools.dbus_client._run_systemctl",
+            side_effect=mock_systemctl,
+        ):
+            result = await service_status("test.service")
+        assert result["unit"] == "test.service"
+
+    async def test_service_restart(self) -> None:
+        from mcp_podman_crunchtools.tools.services import service_restart
+
+        async def mock_systemctl(*args: str) -> str:
+            if "--property=LoadState" in args:
+                return "loaded"
+            if "--property=ExecStart" in args:
+                return "ExecStart=/usr/bin/podman run --rm test"
+            return ""
+
+        with patch(
+            "mcp_podman_crunchtools.dbus_client._run_systemctl",
+            side_effect=mock_systemctl,
+        ):
+            result = await service_restart("test.service")
+        assert result["status"] == "restarted"
+
+    async def test_service_start(self) -> None:
+        from mcp_podman_crunchtools.tools.services import service_start
+
+        async def mock_systemctl(*args: str) -> str:
+            if "--property=LoadState" in args:
+                return "loaded"
+            if "--property=ExecStart" in args:
+                return "ExecStart=/usr/bin/podman run --rm test"
+            return ""
+
+        with patch(
+            "mcp_podman_crunchtools.dbus_client._run_systemctl",
+            side_effect=mock_systemctl,
+        ):
+            result = await service_start("test.service")
+        assert result["status"] == "started"
+
+    async def test_service_stop(self) -> None:
+        from mcp_podman_crunchtools.tools.services import service_stop
+
+        async def mock_systemctl(*args: str) -> str:
+            if "--property=LoadState" in args:
+                return "loaded"
+            if "--property=ExecStart" in args:
+                return "ExecStart=/usr/bin/podman run --rm test"
+            return ""
+
+        with patch(
+            "mcp_podman_crunchtools.dbus_client._run_systemctl",
+            side_effect=mock_systemctl,
+        ):
+            result = await service_stop("test.service")
+        assert result["status"] == "stopped"
+
+    async def test_service_logs(self) -> None:
+        from mcp_podman_crunchtools.tools.services import service_logs
+
+        async def mock_systemctl(*args: str) -> str:
+            if "--property=LoadState" in args:
+                return "loaded"
+            if "--property=ExecStart" in args:
+                return "ExecStart=/usr/bin/podman run --rm test"
+            return ""
+
+        with patch(
+            "mcp_podman_crunchtools.dbus_client._run_systemctl",
+            side_effect=mock_systemctl,
+        ), patch(
+            "asyncio.create_subprocess_exec",
+            return_value=AsyncMock(
+                communicate=AsyncMock(return_value=(b"log line 1\nlog line 2\n", b"")),
+                returncode=0,
+            ),
+        ):
+            result = await service_logs("test.service")
+        assert "logs" in result
+
+    async def test_rejects_non_podman_unit(self) -> None:
+        from mcp_podman_crunchtools.errors import ServiceNotPodmanError
+        from mcp_podman_crunchtools.tools.services import service_restart
+
+        async def mock_systemctl(*args: str) -> str:
+            if "--property=LoadState" in args:
+                return "loaded"
+            if "--property=ExecStart" in args:
+                return "ExecStart=/usr/sbin/sshd -D"
+            return ""
+
+        with patch(
+            "mcp_podman_crunchtools.dbus_client._run_systemctl",
+            side_effect=mock_systemctl,
+        ), pytest.raises(ServiceNotPodmanError):
+            await service_restart("sshd.service")
+
+
 class TestToolCount:
     """Verify tool count matches expected total."""
 
@@ -318,4 +452,4 @@ class TestToolCount:
         from mcp_podman_crunchtools.server import mcp as server
 
         tools = await server.list_tools()
-        assert len(tools) == 30, f"Expected 30 tools, found {len(tools)}"
+        assert len(tools) == 36, f"Expected 36 tools, found {len(tools)}"

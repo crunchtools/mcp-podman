@@ -42,3 +42,8 @@ justification = "Optional API parameter builders use simple if-guards to add que
 check = "implicit_state_machine"
 path = "src/mcp_podman_crunchtools/client.py"
 justification = "Error handling dispatches on HTTP status codes — standard pattern, not a state machine"
+
+[[exceptions]]
+check = "implicit_state_machine"
+path = "src/mcp_podman_crunchtools/dbus_client.py"
+justification = "Optional parameter builders and property iteration use simple if-guards"
