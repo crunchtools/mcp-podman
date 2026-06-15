@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     name="mcp-podman-crunchtools",
-    version="0.2.1",
+    version="0.2.2",
     instructions=(
         "MCP server for Podman container management via the Podman REST API. "
         "Manages containers, images, pods, networks, volumes, and system info. "

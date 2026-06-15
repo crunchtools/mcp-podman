@@ -1,6 +1,6 @@
 [project]
 name = "mcp-podman-crunchtools"
-version = "0.2.1"
+version = "0.2.2"
 description = "MCP server for Podman container management via the Podman REST API"
 requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
+    "dbus-fast>=2.0",
     "fastmcp>=2.0",
     "httpx>=0.28",
     "pydantic>=2.0",
