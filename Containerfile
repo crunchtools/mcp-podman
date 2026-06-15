@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir .
 FROM quay.io/hummingbird/python:latest-fips
 
 LABEL name="mcp-podman-crunchtools" \
-      version="0.1.0" \
+      version="0.1.1" \
       summary="MCP server for Podman container management via the Podman REST API" \
       maintainer="crunchtools.com" \
       org.opencontainers.image.source="https://github.com/crunchtools/mcp-podman" \

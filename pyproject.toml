@@ -1,6 +1,6 @@
 [project]
 name = "mcp-podman-crunchtools"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server for Podman container management via the Podman REST API"
 requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
