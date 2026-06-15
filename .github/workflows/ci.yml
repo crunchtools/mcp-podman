@@ -64,7 +64,7 @@ jobs:
           fi
 
       - name: Run Gourmand
-        run: gourmand --full .
+        run: gourmand .
 
   build-container:
     runs-on: ubuntu-latest
