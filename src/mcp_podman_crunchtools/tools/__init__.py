@@ -34,6 +34,14 @@ from .pods import (
     pod_start,
     pod_stop,
 )
+from .services import (
+    service_list,
+    service_logs,
+    service_restart,
+    service_start,
+    service_status,
+    service_stop,
+)
 from .system import (
     system_df,
     system_info,
@@ -77,6 +85,13 @@ __all__ = [
     # Volumes
     "volume_list",
     "volume_inspect",
+    # Services
+    "service_list",
+    "service_status",
+    "service_restart",
+    "service_start",
+    "service_stop",
+    "service_logs",
     # System
     "system_info",
     "system_df",

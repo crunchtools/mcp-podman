@@ -1,16 +1,23 @@
 FROM quay.io/hummingbird/python:latest-fips-builder AS builder
 USER 0
+RUN dnf install -y --setopt=install_weak_deps=False systemd && dnf clean all
 WORKDIR /app
 RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 RUN pip install --no-cache-dir .
+RUN mkdir -p /staging/usr/bin /staging/usr/lib64 && \
+    cp /usr/bin/systemctl /staging/usr/bin/ && \
+    cp /usr/bin/journalctl /staging/usr/bin/ && \
+    ldd /usr/bin/systemctl /usr/bin/journalctl | \
+    grep "=> /" | awk '{print $3}' | sort -u | \
+    xargs -I{} cp -L {} /staging/usr/lib64/ 2>/dev/null || true
 
 FROM quay.io/hummingbird/python:latest-fips
 
 LABEL name="mcp-podman-crunchtools" \
-      version="0.1.1" \
+      version="0.2.0" \
       summary="MCP server for Podman container management via the Podman REST API" \
       maintainer="crunchtools.com" \
       org.opencontainers.image.source="https://github.com/crunchtools/mcp-podman" \
@@ -18,6 +25,8 @@ LABEL name="mcp-podman-crunchtools" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 
 COPY --from=builder /app/venv /app/venv
+COPY --from=builder /staging/usr/bin/ /usr/bin/
+COPY --from=builder /staging/usr/lib64/ /usr/lib64/
 ENV PATH="/app/venv/bin:$PATH"
 
 EXPOSE 8023
