@@ -1,5 +1,7 @@
 # mcp-podman-crunchtools
 
+<!-- mcp-name: io.github.crunchtools/podman -->
+
 MCP server for Podman container management via the Podman REST API. Manages containers, images, pods, networks, volumes, and system info. Supports both rootful and rootless Podman.
 
 ## Installation
