@@ -1,0 +1,24 @@
+FROM quay.io/hummingbird/python:latest-fips-builder AS builder
+USER 0
+WORKDIR /app
+RUN python3 -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+RUN pip install --no-cache-dir .
+
+FROM quay.io/hummingbird/python:latest-fips
+
+LABEL name="mcp-podman-crunchtools" \
+      version="0.1.0" \
+      summary="MCP server for Podman container management via the Podman REST API" \
+      maintainer="crunchtools.com" \
+      org.opencontainers.image.source="https://github.com/crunchtools/mcp-podman" \
+      org.opencontainers.image.description="MCP server for Podman container management" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+
+COPY --from=builder /app/venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+EXPOSE 8023
+ENTRYPOINT ["python", "-m", "mcp_podman_crunchtools"]
