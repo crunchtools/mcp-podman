@@ -311,50 +311,6 @@ class TestSystemTools:
         assert "Images" in result
 
 
-def _mock_dbus(is_podman: bool = True):
-    """Create mock patches for D-Bus service tests."""
-    from typing import Any
-    from unittest.mock import MagicMock
-
-    from dbus_fast import MessageType
-
-    def _reply(body: list[Any]) -> MagicMock:
-        r = MagicMock()
-        r.message_type = MessageType.METHOD_RETURN
-        r.body = body
-        return r
-
-    async def mock_call(
-        _bus: Any, _interface: str, member: str,
-        _signature: str = "", _body: Any = None, _path: str = "",
-    ) -> MagicMock:
-        responses = {
-            "GetUnit": ["/org/freedesktop/systemd1/unit/test"],
-            "RestartUnit": ["/job/123"],
-            "StartUnit": ["/job/123"],
-            "StopUnit": ["/job/123"],
-            "ListUnits": [[
-                ("test.service", "Test", "loaded", "active", "running",
-                 "", "/test/path", 0, "", "/"),
-                ("test2.service", "Test2", "loaded", "active", "running",
-                 "", "/test/path2", 0, "", "/"),
-            ]],
-        }
-        if member == "Get":
-            return _reply(["test-value"])
-        return _reply(responses.get(member, []))
-
-    async def mock_is_podman(_bus: Any, _path: str) -> bool:
-        return is_podman
-
-    async def mock_get_prop(
-        _bus: Any, _path: str, _iface: str, _prop: str,
-    ) -> str:
-        return "active"
-
-    return mock_call, mock_is_podman, mock_get_prop
-
-
 class TestServiceTools:
     """Tests for systemd service management tools."""
 
@@ -364,7 +320,45 @@ class TestServiceTools:
 
     def _patches(self, is_podman: bool = True):
         """Create standard D-Bus mock patches."""
-        mock_call, mock_is_podman, mock_get_prop = _mock_dbus(is_podman)
+        from typing import Any
+        from unittest.mock import MagicMock
+
+        from dbus_fast import MessageType
+
+        def _reply(body: list[Any]) -> MagicMock:
+            r = MagicMock()
+            r.message_type = MessageType.METHOD_RETURN
+            r.body = body
+            return r
+
+        async def mock_call(
+            _bus: Any, _interface: str, member: str,
+            _signature: str = "", _body: Any = None, _path: str = "",
+        ) -> MagicMock:
+            responses = {
+                "GetUnit": ["/org/freedesktop/systemd1/unit/test"],
+                "RestartUnit": ["/job/123"],
+                "StartUnit": ["/job/123"],
+                "StopUnit": ["/job/123"],
+                "ListUnits": [[
+                    ("test.service", "Test", "loaded", "active", "running",
+                     "", "/test/path", 0, "", "/"),
+                    ("test2.service", "Test2", "loaded", "active", "running",
+                     "", "/test/path2", 0, "", "/"),
+                ]],
+            }
+            if member == "Get":
+                return _reply(["test-value"])
+            return _reply(responses.get(member, []))
+
+        async def mock_is_podman(_bus: Any, _path: str) -> bool:
+            return is_podman
+
+        async def mock_get_prop(
+            _bus: Any, _path: str, _iface: str, _prop: str,
+        ) -> str:
+            return "active"
+
         return (
             patch("mcp_podman_crunchtools.dbus_client._get_bus",
                   return_value=AsyncMock(disconnect=lambda: None)),
