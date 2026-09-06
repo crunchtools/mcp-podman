@@ -52,3 +52,8 @@ justification = "Optional parameter builders and property iteration use simple i
 check = "single_use_helpers"
 path = "src/mcp_podman_crunchtools/config.py"
 justification = "_resolve_socket_path has five return points across six precedence branches. __init__ cannot return, so inlining forces a rewrite into nested if/elif assignment that is strictly harder to follow. Its branches are covered directly by tests/test_config.py::TestResolveSocketPath."
+
+[[exceptions]]
+check = "copy_paste_detection"
+path = "src/mcp_podman_crunchtools/client.py"
+justification = "get_client and get_config are both the four-line lazy-singleton accessor: check the module global, construct if None, return. The duplication is the idiom; hiding it behind a generic obscures which global is being initialised."
