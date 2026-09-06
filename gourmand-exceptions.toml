@@ -47,3 +47,8 @@ justification = "Error handling dispatches on HTTP status codes — standard pat
 check = "implicit_state_machine"
 path = "src/mcp_podman_crunchtools/dbus_client.py"
 justification = "Optional parameter builders and property iteration use simple if-guards"
+
+[[exceptions]]
+check = "single_use_helpers"
+path = "src/mcp_podman_crunchtools/config.py"
+justification = "_resolve_socket_path has five return points across six precedence branches. __init__ cannot return, so inlining forces a rewrite into nested if/elif assignment that is strictly harder to follow. Its branches are covered directly by tests/test_config.py::TestResolveSocketPath."

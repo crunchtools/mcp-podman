@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+DEFAULT_TIMEOUT_SECONDS = 30
+
 
 @pytest.fixture(autouse=True)
 def _reset_client_singleton() -> Generator[None, None, None]:
@@ -25,7 +27,7 @@ def _mock_config(socket_path: str = "/var/run/test.sock") -> MagicMock:
     """Create a mock Config object."""
     config = MagicMock()
     config.socket_path = socket_path
-    config.timeout = 30
+    config.timeout = DEFAULT_TIMEOUT_SECONDS
     return config
 
 
@@ -58,7 +60,7 @@ def _patch_client(response: httpx.Response) -> Any:
     mock_client = AsyncMock()
     mock_client.request = AsyncMock(return_value=response)
 
-    async def mock_get_client(self: Any) -> AsyncMock:  # noqa: ARG001
+    async def mock_get_client(_self: Any) -> AsyncMock:
         return mock_client
 
     return patch(

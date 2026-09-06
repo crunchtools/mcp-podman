@@ -52,7 +52,6 @@ from .volumes import (
 )
 
 __all__ = [
-    # Containers
     "container_list",
     "container_inspect",
     "container_start",
@@ -65,13 +64,11 @@ __all__ = [
     "container_stats",
     "container_create",
     "container_prune",
-    # Images
     "image_list",
     "image_inspect",
     "image_pull",
     "image_rm",
     "image_prune",
-    # Pods
     "pod_list",
     "pod_inspect",
     "pod_start",
@@ -79,20 +76,16 @@ __all__ = [
     "pod_restart",
     "pod_rm",
     "pod_create",
-    # Networks
     "network_list",
     "network_inspect",
-    # Volumes
     "volume_list",
     "volume_inspect",
-    # Services
     "service_list",
     "service_status",
     "service_restart",
     "service_start",
     "service_stop",
     "service_logs",
-    # System
     "system_info",
     "system_df",
 ]

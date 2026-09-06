@@ -57,7 +57,6 @@ mcp = FastMCP(
 )
 
 
-# --- Container Tools ---
 
 
 @mcp.tool()
@@ -249,7 +248,6 @@ async def container_prune_tool() -> dict[str, Any]:
     return await container_prune()
 
 
-# --- Image Tools ---
 
 
 @mcp.tool()
@@ -317,7 +315,6 @@ async def image_prune_tool() -> dict[str, Any]:
     return await image_prune()
 
 
-# --- Pod Tools ---
 
 
 @mcp.tool()
@@ -423,7 +420,6 @@ async def pod_create_tool(
     return await pod_create(name=name, labels=labels, infra=infra, share=share)
 
 
-# --- Network Tools ---
 
 
 @mcp.tool()
@@ -454,7 +450,6 @@ async def network_inspect_tool(name: str) -> dict[str, Any]:
     return await network_inspect(name)
 
 
-# --- Volume Tools ---
 
 
 @mcp.tool()
@@ -485,7 +480,6 @@ async def volume_inspect_tool(name: str) -> dict[str, Any]:
     return await volume_inspect(name)
 
 
-# --- Service Tools (systemd units managing Podman containers) ---
 
 
 @mcp.tool()
@@ -574,7 +568,6 @@ async def service_logs_tool(
     return await service_logs(unit_name, lines=lines, since=since)
 
 
-# --- System Tools ---
 
 
 @mcp.tool()
