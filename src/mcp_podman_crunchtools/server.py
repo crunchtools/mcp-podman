@@ -32,12 +32,6 @@ from .tools import (
     pod_rm,
     pod_start,
     pod_stop,
-    service_list,
-    service_logs,
-    service_restart,
-    service_start,
-    service_status,
-    service_stop,
     system_df,
     system_info,
     volume_inspect,
@@ -48,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     name="mcp-podman-crunchtools",
-    version="0.2.2",
+    version="1.0.0",
     instructions=(
         "MCP server for Podman container management via the Podman REST API. "
         "Manages containers, images, pods, networks, volumes, and system info. "
@@ -478,94 +472,6 @@ async def volume_inspect_tool(name: str) -> dict[str, Any]:
         Volume details including mount point and driver
     """
     return await volume_inspect(name)
-
-
-
-
-@mcp.tool()
-async def service_list_tool() -> dict[str, Any]:
-    """List systemd units that manage Podman containers.
-
-    Only shows units whose ExecStart contains /usr/bin/podman.
-    Non-container services (sshd, firewalld, etc.) are excluded.
-
-    Returns:
-        List of Podman container service units with status
-    """
-    return await service_list()
-
-
-@mcp.tool()
-async def service_status_tool(unit_name: str) -> dict[str, Any]:
-    """Get the status of a Podman container systemd unit.
-
-    Args:
-        unit_name: Systemd unit name (e.g. "acquacotta.crunchtools.com.service")
-
-    Returns:
-        Unit properties including ActiveState, MainPID, memory, CPU usage
-    """
-    return await service_status(unit_name)
-
-
-@mcp.tool()
-async def service_restart_tool(unit_name: str) -> dict[str, Any]:
-    """Restart a Podman container systemd unit.
-
-    This is the correct way to bounce containers on systems where
-    containers are managed by systemd. Using podman restart directly
-    would conflict with systemd's process management.
-
-    Args:
-        unit_name: Systemd unit name (e.g. "acquacotta.crunchtools.com.service")
-
-    Returns:
-        Restart confirmation
-    """
-    return await service_restart(unit_name)
-
-
-@mcp.tool()
-async def service_start_tool(unit_name: str) -> dict[str, Any]:
-    """Start a Podman container systemd unit.
-
-    Args:
-        unit_name: Systemd unit name (e.g. "acquacotta.crunchtools.com.service")
-
-    Returns:
-        Start confirmation
-    """
-    return await service_start(unit_name)
-
-
-@mcp.tool()
-async def service_stop_tool(unit_name: str) -> dict[str, Any]:
-    """Stop a Podman container systemd unit.
-
-    Args:
-        unit_name: Systemd unit name (e.g. "acquacotta.crunchtools.com.service")
-
-    Returns:
-        Stop confirmation
-    """
-    return await service_stop(unit_name)
-
-
-@mcp.tool()
-async def service_logs_tool(
-    unit_name: str, lines: int = 50, since: str | None = None,
-) -> dict[str, Any]:
-    """Get journal logs for a Podman container systemd unit.
-
-    Args:
-        unit_name: Systemd unit name (e.g. "acquacotta.crunchtools.com.service")
-        lines: Number of log lines to return (default: 50)
-        since: Show logs since timestamp (e.g. "1 hour ago", "2024-01-01")
-
-    Returns:
-        Journal log output for the unit
-    """
-    return await service_logs(unit_name, lines=lines, since=since)
 
 
 

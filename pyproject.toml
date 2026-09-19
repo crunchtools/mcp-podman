@@ -1,6 +1,6 @@
 [project]
 name = "mcp-podman-crunchtools"
-version = "0.2.2"
+version = "1.0.0"
 description = "MCP server for Podman container management via the Podman REST API"
 requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
@@ -19,7 +19,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "dbus-fast>=2.0",
     "fastmcp>=2.0",
     "httpx>=0.28",
     "pydantic>=2.0",
@@ -53,6 +52,7 @@ ignore = [
     "S101",     # assert allowed in tests
     "TRY003",   # long exception messages ok
     "PLR0913",  # many arguments ok for tools
+    "PLR0917",  # many positional arguments ok for tools (all are keyword in practice)
     "PLR2004",  # magic numbers ok (HTTP status codes)
     "PLW0603",  # global statement ok for singletons
     "PIE790",   # pass in empty classes ok
