@@ -91,16 +91,9 @@ class PodmanClient:
     ) -> str:
         """Make a GET request and return raw text (for logs)."""
         client = await self._get_client()
-        try:
-            response = await client.request("GET", path, params=params)
-        except httpx.ConnectError as e:
-            raise SocketConnectionError(self._config.socket_path) from e
-        except httpx.TimeoutException as e:
-            raise PodmanApiError(0, f"Request timeout: {e}") from e
-
-        if not response.is_success:
-            self._handle_error(response, path)
-
+        logger.debug("API request: GET %s", path)
+        response = await self._send(client, "GET", path, params, None)
+        self._check_response(response, path)
         return response.text
 
     async def _request(
@@ -133,7 +126,9 @@ class PodmanClient:
                 params=params,
                 json=json_data,
             )
-        except httpx.ConnectError as e:
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            # ConnectTimeout subclasses TimeoutException, not ConnectError, so it
+            # must be caught here or a hung socket loses the remediation message.
             raise SocketConnectionError(self._config.socket_path) from e
         except httpx.TimeoutException as e:
             raise PodmanApiError(0, f"Request timeout: {e}") from e

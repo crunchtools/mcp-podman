@@ -8,6 +8,21 @@ Entries prior to 2026-09-19 are back-filled from GitHub Release notes (RT #1484)
 
 ## [Unreleased]
 
+### Fixed
+- `container_logs` now routes through the shared request path. Mid-stream transport
+  failures (`ReadError`, `RemoteProtocolError`) during a log fetch escaped as raw httpx
+  exceptions instead of typed errors, and the call bypassed the `MAX_RESPONSE_SIZE`
+  guard entirely — the one endpoint most likely to return tens of megabytes had no cap.
+- A hung Podman socket now returns the socket remediation message. `httpx.ConnectTimeout`
+  subclasses `TimeoutException` rather than `ConnectError`, so it fell through to the
+  generic "Request timeout" path and lost the `systemctl start podman.socket` hint.
+
+### Added
+- `TestClientErrorHandling` covering the transport and HTTP error paths (profile
+  section IV). `tests/conftest.py` gains `_patch_client_raising()` for injecting
+  transport exceptions, and `test_container_logs` no longer patches out `get_text`,
+  the method it is meant to exercise.
+
 ## [1.0.0] - 2026-09-19
 
 ### Removed

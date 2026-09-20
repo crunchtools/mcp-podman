@@ -67,3 +67,17 @@ def _patch_client(response: httpx.Response) -> Any:
         "mcp_podman_crunchtools.client.PodmanClient._get_client",
         mock_get_client,
     )
+
+
+def _patch_client_raising(exc: Exception) -> Any:
+    """Patch httpx.AsyncClient so every request raises the given exception."""
+    mock_client = AsyncMock()
+    mock_client.request = AsyncMock(side_effect=exc)
+
+    async def mock_get_client(_self: Any) -> AsyncMock:
+        return mock_client
+
+    return patch(
+        "mcp_podman_crunchtools.client.PodmanClient._get_client",
+        mock_get_client,
+    )

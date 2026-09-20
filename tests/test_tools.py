@@ -1,10 +1,14 @@
 """Mocked API tests for all Podman tools."""
 
-from unittest.mock import patch
-
+import httpx
 import pytest
 
-from tests.conftest import _mock_config, _mock_response, _patch_client
+from tests.conftest import (
+    _mock_config,
+    _mock_response,
+    _patch_client,
+    _patch_client_raising,
+)
 
 
 def _setup_config() -> None:
@@ -81,12 +85,10 @@ class TestContainerTools:
     async def test_container_logs(self) -> None:
         from mcp_podman_crunchtools.tools.containers import container_logs
 
-        with patch(
-            "mcp_podman_crunchtools.client.PodmanClient.get_text",
-            return_value="line1\nline2\n",
-        ):
+        response = _mock_response(text="line1\nline2\n")
+        with _patch_client(response):
             result = await container_logs("test")
-        assert "logs" in result
+        assert result["logs"] == "line1\nline2\n"
 
     async def test_container_top(self) -> None:
         from mcp_podman_crunchtools.tools.containers import container_top
@@ -311,6 +313,134 @@ class TestSystemTools:
         with _patch_client(response):
             result = await system_df()
         assert "Images" in result
+
+
+class TestClientErrorHandling:
+    """Transport and HTTP failures must surface as clean ToolError subclasses."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        _setup_config()
+
+    async def test_connect_error_gives_socket_remediation(self) -> None:
+        from mcp_podman_crunchtools.errors import SocketConnectionError
+        from mcp_podman_crunchtools.tools.containers import container_list
+
+        with (
+            _patch_client_raising(httpx.ConnectError("no such file")),
+            pytest.raises(SocketConnectionError, match="Cannot connect to Podman socket"),
+        ):
+            await container_list()
+
+    async def test_connect_timeout_gives_socket_remediation(self) -> None:
+        """ConnectTimeout subclasses TimeoutException, so it needs its own handling."""
+        from mcp_podman_crunchtools.errors import SocketConnectionError
+        from mcp_podman_crunchtools.tools.containers import container_list
+
+        with (
+            _patch_client_raising(httpx.ConnectTimeout("handshake timed out")),
+            pytest.raises(SocketConnectionError, match="systemctl"),
+        ):
+            await container_list()
+
+    async def test_read_timeout_is_a_timeout_not_a_socket_error(self) -> None:
+        from mcp_podman_crunchtools.errors import PodmanApiError
+        from mcp_podman_crunchtools.tools.containers import container_list
+
+        with (
+            _patch_client_raising(httpx.ReadTimeout("read timed out")),
+            pytest.raises(PodmanApiError, match="Request timeout"),
+        ):
+            await container_list()
+
+    async def test_logs_mid_stream_error_is_clean(self) -> None:
+        """Regression: get_text lacked the RequestError clause that _send has."""
+        from mcp_podman_crunchtools.errors import PodmanApiError
+        from mcp_podman_crunchtools.tools.containers import container_logs
+
+        with (
+            _patch_client_raising(httpx.RemoteProtocolError("server disconnected")),
+            pytest.raises(PodmanApiError, match="Request failed"),
+        ):
+            await container_logs("test")
+
+    async def test_logs_connect_error_gives_socket_remediation(self) -> None:
+        from mcp_podman_crunchtools.errors import SocketConnectionError
+        from mcp_podman_crunchtools.tools.containers import container_logs
+
+        with (
+            _patch_client_raising(httpx.ConnectError("no such file")),
+            pytest.raises(SocketConnectionError, match="Cannot connect to Podman socket"),
+        ):
+            await container_logs("test")
+
+    async def test_logs_respects_response_size_limit(self) -> None:
+        """Regression: get_text bypassed _check_response, so logs had no size cap."""
+        from mcp_podman_crunchtools.errors import PodmanApiError
+        from mcp_podman_crunchtools.tools.containers import container_logs
+
+        response = _mock_response(text="x")
+        response.headers["content-length"] = str(11 * 1024 * 1024)
+        with (
+            _patch_client(response),
+            pytest.raises(PodmanApiError, match="Response too large"),
+        ):
+            await container_logs("test")
+
+    async def test_404_on_container_path(self) -> None:
+        from mcp_podman_crunchtools.errors import ContainerNotFoundError
+        from mcp_podman_crunchtools.tools.containers import container_inspect
+
+        response = _mock_response(status_code=404, json_data={"cause": "no such container"})
+        with (
+            _patch_client(response),
+            pytest.raises(ContainerNotFoundError, match="no such container"),
+        ):
+            await container_inspect("missing")
+
+    async def test_404_on_image_path(self) -> None:
+        from mcp_podman_crunchtools.errors import ImageNotFoundError
+        from mcp_podman_crunchtools.tools.images import image_inspect
+
+        response = _mock_response(status_code=404, json_data={"cause": "no such image"})
+        with (
+            _patch_client(response),
+            pytest.raises(ImageNotFoundError, match="no such image"),
+        ):
+            await image_inspect("missing")
+
+    async def test_409_is_reported_as_a_conflict(self) -> None:
+        from mcp_podman_crunchtools.errors import PodmanApiError
+        from mcp_podman_crunchtools.tools.containers import container_rm
+
+        response = _mock_response(status_code=409, json_data={"cause": "container is running"})
+        with (
+            _patch_client(response),
+            pytest.raises(PodmanApiError, match="Conflict: container is running"),
+        ):
+            await container_rm("busy")
+
+    async def test_500_falls_through_to_a_generic_api_error(self) -> None:
+        from mcp_podman_crunchtools.errors import PodmanApiError
+        from mcp_podman_crunchtools.tools.containers import container_list
+
+        response = _mock_response(status_code=500, json_data={"message": "boom"})
+        with (
+            _patch_client(response),
+            pytest.raises(PodmanApiError, match="500"),
+        ):
+            await container_list()
+
+    async def test_non_json_error_body_is_truncated(self) -> None:
+        from mcp_podman_crunchtools.errors import PodmanApiError
+        from mcp_podman_crunchtools.tools.containers import container_list
+
+        response = _mock_response(status_code=502, text="<html>bad gateway</html>")
+        with (
+            _patch_client(response),
+            pytest.raises(PodmanApiError, match="bad gateway"),
+        ):
+            await container_list()
 
 
 class TestToolCount:
