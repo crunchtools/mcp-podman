@@ -10,6 +10,7 @@ from tests.conftest import _mock_config, _mock_response, _patch_client
 def _setup_config() -> None:
     """Patch config to avoid needing a real socket."""
     import mcp_podman_crunchtools.config as config_mod
+
     config_mod._config = _mock_config()
 
 
@@ -111,7 +112,8 @@ class TestContainerTools:
         from mcp_podman_crunchtools.tools.containers import container_create
 
         response = _mock_response(
-            status_code=201, json_data={"Id": "abc123", "Warnings": []},
+            status_code=201,
+            json_data={"Id": "abc123", "Warnings": []},
         )
         with _patch_client(response):
             result = await container_create(image="ubi9:latest", name="newcontainer")

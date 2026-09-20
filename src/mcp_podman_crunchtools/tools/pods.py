@@ -1,8 +1,13 @@
 """Pod management tools."""
 
+import json
 from typing import Any
 
+from pydantic import ValidationError
+
 from ..client import get_client
+from ..errors import InvalidInputError
+from ..models import PodCreateInput
 
 
 async def pod_list(
@@ -12,7 +17,6 @@ async def pod_list(
     client = get_client()
     params: dict[str, Any] = {}
     if filters:
-        import json
         params["filters"] = json.dumps(filters)
     return await client.get("/pods/json", params=params)
 
@@ -57,10 +61,15 @@ async def pod_create(
     share: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create a new pod."""
+    try:
+        validated = PodCreateInput(name=name, labels=labels, infra=infra, share=share)
+    except ValidationError as e:
+        raise InvalidInputError(str(e)) from e
+
     client = get_client()
-    spec: dict[str, Any] = {"name": name, "infra": infra}
-    if labels:
-        spec["labels"] = labels
-    if share:
-        spec["share"] = share
+    spec: dict[str, Any] = {"name": validated.name, "infra": validated.infra}
+    if validated.labels:
+        spec["labels"] = validated.labels
+    if validated.share:
+        spec["share"] = validated.share
     return await client.post("/pods/create", json_data=spec)

@@ -124,7 +124,10 @@ class PodmanClient:
         """Send the HTTP request, raising clean errors on transport failures."""
         try:
             return await client.request(
-                method=method, url=path, params=params, json=json_data,
+                method=method,
+                url=path,
+                params=params,
+                json=json_data,
             )
         except httpx.ConnectError as e:
             raise SocketConnectionError(self._config.socket_path) from e
@@ -154,9 +157,7 @@ class PodmanClient:
         try:
             parsed = response.json()
         except ValueError as e:
-            raise PodmanApiError(
-                response.status_code, f"Invalid JSON response: {e}"
-            ) from e
+            raise PodmanApiError(response.status_code, f"Invalid JSON response: {e}") from e
 
         if isinstance(parsed, list):
             return {"items": parsed, "count": len(parsed)}

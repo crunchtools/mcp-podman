@@ -1,8 +1,13 @@
 """Container management tools."""
 
+import json
 from typing import Any
 
+from pydantic import ValidationError
+
 from ..client import get_client
+from ..errors import InvalidInputError
+from ..models import ContainerCreateInput
 
 
 async def container_list(
@@ -16,7 +21,6 @@ async def container_list(
     if all_containers:
         params["all"] = "true"
     if filters:
-        import json
         params["filters"] = json.dumps(filters)
     if limit is not None:
         params["limit"] = limit
@@ -65,7 +69,10 @@ async def container_rm(name: str, force: bool = False, volumes: bool = False) ->
 
 
 async def container_logs(
-    name: str, tail: int | None = None, since: str | None = None, timestamps: bool = False,
+    name: str,
+    tail: int | None = None,
+    since: str | None = None,
+    timestamps: bool = False,
 ) -> dict[str, Any]:
     """Get container logs."""
     client = get_client()
@@ -104,19 +111,31 @@ async def container_create(
     volumes: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create a new container."""
+    try:
+        validated = ContainerCreateInput(
+            image=image,
+            name=name,
+            command=command,
+            env=env,
+            labels=labels,
+            volumes=volumes,
+        )
+    except ValidationError as e:
+        raise InvalidInputError(str(e)) from e
+
     client = get_client()
-    spec: dict[str, Any] = {"image": image}
-    if name:
-        spec["name"] = name
-    if command:
-        spec["command"] = command
-    if env:
-        spec["env"] = env
-    if labels:
-        spec["labels"] = labels
-    if volumes:
+    spec: dict[str, Any] = {"image": validated.image}
+    if validated.name:
+        spec["name"] = validated.name
+    if validated.command:
+        spec["command"] = validated.command
+    if validated.env:
+        spec["env"] = validated.env
+    if validated.labels:
+        spec["labels"] = validated.labels
+    if validated.volumes:
         mounts = []
-        for vol in volumes:
+        for vol in validated.volumes:
             parts = vol.split(":")
             mount: dict[str, Any] = {"Type": "bind", "Source": parts[0], "Destination": parts[1]}
             if len(parts) > 2:
