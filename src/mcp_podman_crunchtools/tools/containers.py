@@ -9,6 +9,9 @@ from ..client import get_client
 from ..errors import InvalidInputError
 from ..models import ContainerCreateInput
 
+# "host:container[:options]" — a mount spec with an options segment has 3 parts.
+VOLUME_SPEC_WITH_OPTIONS_PARTS = 2
+
 
 async def container_list(
     all_containers: bool = False,
@@ -138,7 +141,7 @@ async def container_create(
         for vol in validated.volumes:
             parts = vol.split(":")
             mount: dict[str, Any] = {"Type": "bind", "Source": parts[0], "Destination": parts[1]}
-            if len(parts) > 2:
+            if len(parts) > VOLUME_SPEC_WITH_OPTIONS_PARTS:
                 mount["Options"] = parts[2].split(",")
             mounts.append(mount)
         spec["mounts"] = mounts
