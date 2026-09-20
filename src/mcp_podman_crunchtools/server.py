@@ -51,8 +51,6 @@ mcp = FastMCP(
 )
 
 
-
-
 @mcp.tool()
 async def container_list_tool(
     all_containers: bool = False,
@@ -142,7 +140,9 @@ async def container_kill_tool(name: str, signal: str = "SIGTERM") -> dict[str, A
 
 @mcp.tool()
 async def container_rm_tool(
-    name: str, force: bool = False, volumes: bool = False,
+    name: str,
+    force: bool = False,
+    volumes: bool = False,
 ) -> dict[str, Any]:
     """Remove a container.
 
@@ -169,7 +169,7 @@ async def container_logs_tool(
     Args:
         name: Container name or ID
         tail: Number of lines from the end of the logs
-        since: Show logs since timestamp (e.g. "2024-01-01T00:00:00Z")
+        since: Show logs since timestamp (RFC3339, e.g. "YYYY-MM-DDThh:mm:ssZ")
         timestamps: Add timestamps to each log line
 
     Returns:
@@ -228,7 +228,12 @@ async def container_create_tool(
         Created container ID and warnings
     """
     return await container_create(
-        image=image, name=name, command=command, env=env, labels=labels, volumes=volumes,
+        image=image,
+        name=name,
+        command=command,
+        env=env,
+        labels=labels,
+        volumes=volumes,
     )
 
 
@@ -240,8 +245,6 @@ async def container_prune_tool() -> dict[str, Any]:
         List of removed container IDs and reclaimed space
     """
     return await container_prune()
-
-
 
 
 @mcp.tool()
@@ -307,8 +310,6 @@ async def image_prune_tool() -> dict[str, Any]:
         List of removed image IDs and reclaimed space
     """
     return await image_prune()
-
-
 
 
 @mcp.tool()
@@ -414,8 +415,6 @@ async def pod_create_tool(
     return await pod_create(name=name, labels=labels, infra=infra, share=share)
 
 
-
-
 @mcp.tool()
 async def network_list_tool(
     filters: dict[str, list[str]] | None = None,
@@ -444,8 +443,6 @@ async def network_inspect_tool(name: str) -> dict[str, Any]:
     return await network_inspect(name)
 
 
-
-
 @mcp.tool()
 async def volume_list_tool(
     filters: dict[str, list[str]] | None = None,
@@ -472,8 +469,6 @@ async def volume_inspect_tool(name: str) -> dict[str, Any]:
         Volume details including mount point and driver
     """
     return await volume_inspect(name)
-
-
 
 
 @mcp.tool()

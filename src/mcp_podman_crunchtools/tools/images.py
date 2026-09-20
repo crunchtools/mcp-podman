@@ -1,5 +1,6 @@
 """Image management tools."""
 
+import json
 from typing import Any
 
 from ..client import get_client
@@ -12,7 +13,6 @@ async def image_list(
     client = get_client()
     params: dict[str, Any] = {}
     if filters:
-        import json
         params["filters"] = json.dumps(filters)
     return await client.get("/images/json", params=params)
 

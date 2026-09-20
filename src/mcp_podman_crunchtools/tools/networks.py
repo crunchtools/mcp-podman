@@ -1,5 +1,6 @@
 """Network management tools."""
 
+import json
 from typing import Any
 
 from ..client import get_client
@@ -12,7 +13,6 @@ async def network_list(
     client = get_client()
     params: dict[str, Any] = {}
     if filters:
-        import json
         params["filters"] = json.dumps(filters)
     return await client.get("/networks/json", params=params)
 

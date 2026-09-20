@@ -78,7 +78,12 @@ class SocketConnectionError(ToolError):
         )
 
 
+class InvalidInputError(ToolError):
+    """Input failed Pydantic validation (length limits, unknown fields, etc.)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(f"Invalid input: {message}")
+
+
 class ConfigurationError(ToolError):
     """Server configuration is invalid."""
-
-

@@ -49,25 +49,50 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "S", "B", "C4", "C901", "DTZ", "T10", "ISC", "PIE", "PT", "RET", "SIM", "TID", "TCH", "ARG", "PLC", "PLE", "PLR", "PLW", "TRY", "RUF"]
 ignore = [
-    "S101",     # assert allowed in tests
-    "TRY003",   # long exception messages ok
-    "PLR0913",  # many arguments ok for tools
-    "PLR0917",  # ditto, positional: MCP tool signatures mirror the wire API
-    "PLR2004",  # magic numbers ok (HTTP status codes)
-    "PLW0603",  # global statement ok for singletons
-    "PIE790",   # pass in empty classes ok
-    "PLC0415",  # imports in tests ok
-    "S105",     # hardcoded passwords in tests ok
+    # Verified project-wide by removing each ignore and running ruff: every
+    # remaining hit is an internal relative import ("from ..client import
+    # get_client" etc.), which is this package's actual, consistent import
+    # style across every tools/ module — not an unreviewed carve-out.
     "TID252",   # relative imports in package ok
-    "RUF022",   # __all__ sorted by category, not alphabetically
 ]
 
 [tool.ruff.lint.pylint]
 max-branches = 10
 max-statements = 50
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S105", "PLC0415", "PLR2004"]
+# S101 (assert), S105 (hardcoded-password-like literals) and PLC0415 (imports
+# inside function bodies) are genuinely test-only exemptions — assertions are
+# the point of a test, fixtures use throwaway secret-shaped strings, and
+# lazy imports avoid patch-target import-order headaches. Scoping them here
+# instead of the global ignore keeps them enforced in src/.
+# PLR2004 (magic values) is legitimately test-wide too: test assertions
+# compare against many literal counts/timeouts that don't warrant named
+# constants.
+"tests/*" = ["S101", "S105", "PLC0415", "PLR2004"]
+# TRY003 (long exception messages) fires only here, all 4 sites in
+# _resolve_socket_path/_validate_socket: ConfigurationError intentionally
+# takes a full formatted message per call (it has no message-template of its
+# own), so there's no shared string to hoist into the exception class.
+# PLW0603 (global statement) fires only on the lazy-singleton accessor here
+# (get_config): __init__ can't return, so the module-level cache is set via
+# `global` rather than reassigning a local.
+"src/mcp_podman_crunchtools/config.py" = ["TRY003", "PLW0603"]
+# PLW0603 also fires on the matching lazy-singleton accessor for the HTTP
+# client (get_client) — same pattern, same reason.
+"src/mcp_podman_crunchtools/client.py" = ["PLW0603"]
+# PLR0913/PLR0917 (too many arguments) fire only on container_create, whose
+# 6 parameters mirror Podman's create-container wire API 1:1 (image, name,
+# command, env, labels, volumes) — bundling them into an object would only
+# duplicate ContainerCreateInput, which already validates this exact shape.
+"src/mcp_podman_crunchtools/tools/containers.py" = ["PLR0913", "PLR0917"]
+# Same reason: container_create_tool is the MCP-tool wrapper with an
+# identical signature (FastMCP needs the real parameter names for the tool
+# schema, so it can't just take **kwargs or a model).
+"src/mcp_podman_crunchtools/server.py" = ["PLR0913", "PLR0917"]
 
 [tool.mypy]
 python_version = "3.10"

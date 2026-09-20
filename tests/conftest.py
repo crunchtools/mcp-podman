@@ -1,5 +1,6 @@
 """Test fixtures for the Podman MCP server."""
 
+import json
 from collections.abc import Generator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -40,7 +41,6 @@ def _mock_response(
     """Build a mock httpx.Response."""
     resp_headers = headers or {}
     if json_data is not None:
-        import json
         content = json.dumps(json_data).encode()
         resp_headers.setdefault("content-type", "application/json")
     else:

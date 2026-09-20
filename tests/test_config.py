@@ -112,9 +112,7 @@ class TestResolveSocketPath:
         assert _resolve() == expected
 
     def test_rootful_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(
-            Path, "exists", lambda p: str(p) == "/run/podman/podman.sock"
-        )
+        monkeypatch.setattr(Path, "exists", lambda p: str(p) == "/run/podman/podman.sock")
 
         assert _resolve() == "/run/podman/podman.sock"
 
@@ -128,9 +126,7 @@ class TestResolveSocketPath:
 class TestConfig:
     """End-to-end construction against a real Unix socket."""
 
-    def test_accepts_a_real_socket(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_accepts_a_real_socket(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         path = tmp_path / "podman.sock"
         with _listening_socket(path):
             monkeypatch.setenv("PODMAN_SOCKET", str(path))

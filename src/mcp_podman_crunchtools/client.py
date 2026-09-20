@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10 MB
 API_VERSION = "v5.0.0"
 
+HTTP_NO_CONTENT = 204
+HTTP_NOT_FOUND = 404
+HTTP_CONFLICT = 409
+
 _client: "PodmanClient | None" = None
 
 
@@ -124,7 +128,10 @@ class PodmanClient:
         """Send the HTTP request, raising clean errors on transport failures."""
         try:
             return await client.request(
-                method=method, url=path, params=params, json=json_data,
+                method=method,
+                url=path,
+                params=params,
+                json=json_data,
             )
         except httpx.ConnectError as e:
             raise SocketConnectionError(self._config.socket_path) from e
@@ -144,7 +151,7 @@ class PodmanClient:
     @staticmethod
     def _parse_response(response: httpx.Response) -> dict[str, Any]:
         """Parse a successful response into a dict."""
-        if response.status_code == 204 or not response.text:
+        if response.status_code == HTTP_NO_CONTENT or not response.text:
             return {"status": "success"}
 
         content_type = response.headers.get("content-type", "")
@@ -154,9 +161,7 @@ class PodmanClient:
         try:
             parsed = response.json()
         except ValueError as e:
-            raise PodmanApiError(
-                response.status_code, f"Invalid JSON response: {e}"
-            ) from e
+            raise PodmanApiError(response.status_code, f"Invalid JSON response: {e}") from e
 
         if isinstance(parsed, list):
             return {"items": parsed, "count": len(parsed)}
@@ -178,7 +183,7 @@ class PodmanClient:
         except ValueError:
             error_msg = response.text[:200] if response.text else "Unknown error"
 
-        if status_code == 404:
+        if status_code == HTTP_NOT_FOUND:
             if "/containers/" in path:
                 raise ContainerNotFoundError(error_msg)
             if "/images/" in path:
@@ -190,7 +195,7 @@ class PodmanClient:
             if "/volumes/" in path:
                 raise VolumeNotFoundError(error_msg)
 
-        if status_code == 409:
+        if status_code == HTTP_CONFLICT:
             raise PodmanApiError(status_code, f"Conflict: {error_msg}")
 
         raise PodmanApiError(status_code, error_msg)
