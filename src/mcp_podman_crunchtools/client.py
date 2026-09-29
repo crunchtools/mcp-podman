@@ -5,6 +5,7 @@ The base URL hostname is a placeholder — actual connection goes through
 the socket.
 """
 
+import json
 import logging
 from typing import Any
 
@@ -156,13 +157,33 @@ class PodmanClient:
         try:
             parsed = response.json()
         except ValueError as e:
-            raise PodmanApiError(response.status_code, f"Invalid JSON response: {e}") from e
+            parsed = PodmanClient._parse_json_stream(response, e)
 
         if isinstance(parsed, list):
             return {"items": parsed, "count": len(parsed)}
         if isinstance(parsed, dict):
             return parsed
         return {"data": parsed}
+
+    @staticmethod
+    def _parse_json_stream(response: httpx.Response, cause: ValueError) -> Any:
+        """Return the final report of a newline-delimited JSON stream.
+
+        Streaming endpoints such as /images/pull answer 200 with one JSON
+        object per line: progress, then a report carrying either the result
+        or an "error". A failure mid-stream arrives in-band, so it is raised
+        here rather than returned as success.
+        """
+        try:
+            objects = [json.loads(line) for line in response.text.splitlines() if line.strip()]
+        except ValueError:
+            objects = []
+        if not objects:
+            raise PodmanApiError(response.status_code, f"Invalid JSON response: {cause}") from cause
+        for obj in objects:
+            if isinstance(obj, dict) and obj.get("error"):
+                raise PodmanApiError(response.status_code, str(obj["error"]))
+        return objects[-1]
 
     def _handle_error(self, response: httpx.Response, path: str) -> None:
         """Handle error responses from the Podman API."""
