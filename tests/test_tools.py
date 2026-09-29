@@ -161,6 +161,26 @@ class TestImageTools:
             result = await image_pull("ubi9:latest")
         assert "id" in result
 
+    async def test_image_pull_streamed_report(self) -> None:
+        """libpod streams one JSON object per line; the last one is the result."""
+        from mcp_podman_crunchtools.tools.images import image_pull
+
+        body = '{"stream":"Copying blob 1a2b\\n"}\n{"id":"img123","images":["img123"]}\n'
+        response = _mock_response(text=body, headers={"content-type": "application/json"})
+        with _patch_client(response):
+            result = await image_pull("ubi9:latest")
+        assert result == {"id": "img123", "images": ["img123"]}
+
+    async def test_image_pull_streamed_error_raises(self) -> None:
+        """A pull that fails mid-stream still answers 200; the error is in-band."""
+        from mcp_podman_crunchtools.errors import PodmanApiError
+        from mcp_podman_crunchtools.tools.images import image_pull
+
+        body = '{"stream":"Trying to pull...\\n"}\n{"error":"manifest unknown"}\n'
+        response = _mock_response(text=body, headers={"content-type": "application/json"})
+        with _patch_client(response), pytest.raises(PodmanApiError, match="manifest unknown"):
+            await image_pull("ubi9:nope")
+
     async def test_image_rm(self) -> None:
         from mcp_podman_crunchtools.tools.images import image_rm
 

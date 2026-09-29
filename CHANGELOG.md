@@ -9,6 +9,10 @@ Entries prior to 2026-09-19 are back-filled from GitHub Release notes (RT #1484)
 ## [Unreleased]
 
 ### Fixed
+- `image_pull` no longer reports every successful pull as "Invalid JSON response". libpod
+  streams the pull as newline-delimited JSON, and the client parsed the whole body as one
+  document. Streamed responses now return the final report, and an in-band `error`
+  (a pull that fails after the 200) is raised instead of passing as success.
 - `container_logs` now routes through the shared request path. Mid-stream transport
   failures (`ReadError`, `RemoteProtocolError`) during a log fetch escaped as raw httpx
   exceptions instead of typed errors, and the call bypassed the `MAX_RESPONSE_SIZE`
