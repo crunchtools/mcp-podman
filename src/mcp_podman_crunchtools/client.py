@@ -174,16 +174,20 @@ class PodmanClient:
         or an "error". A failure mid-stream arrives in-band, so it is raised
         here rather than returned as success.
         """
-        try:
-            objects = [json.loads(line) for line in response.text.splitlines() if line.strip()]
-        except ValueError:
-            objects = []
-        if not objects:
+        last: Any = None
+        for line in response.text.splitlines():
+            if not line.strip():
+                continue
+            try:
+                last = json.loads(line)
+            except ValueError:
+                last = None
+                break
+            if isinstance(last, dict) and last.get("error"):
+                raise PodmanApiError(response.status_code, str(last["error"]))
+        if last is None:
             raise PodmanApiError(response.status_code, f"Invalid JSON response: {cause}") from cause
-        for obj in objects:
-            if isinstance(obj, dict) and obj.get("error"):
-                raise PodmanApiError(response.status_code, str(obj["error"]))
-        return objects[-1]
+        return last
 
     def _handle_error(self, response: httpx.Response, path: str) -> None:
         """Handle error responses from the Podman API."""
