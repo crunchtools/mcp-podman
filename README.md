@@ -46,7 +46,7 @@ claude mcp add mcp-podman-crunchtools \
 | Tool | Description |
 |------|-------------|
 | `container_list` | List containers |
-| `container_inspect` | Get container details |
+| `container_inspect` | Get container details; environment values are redacted, names kept |
 | `container_start` | Start a container |
 | `container_stop` | Stop a container |
 | `container_restart` | Restart a container |

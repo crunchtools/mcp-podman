@@ -8,6 +8,15 @@ Entries prior to 2026-09-19 are back-filled from GitHub Release notes (RT #1484)
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-01
+
+### Security
+- `container_inspect` redacts environment values. libpod returns every variable with its
+  value in `Config.Env`, and the full `podman run` command, inline `-e NAME=value`
+  included, in `Config.CreateCommand`; the tool passed both through to the calling model.
+  Inspecting a container handed over whatever credentials it was started with. Names are
+  kept, every value is replaced with `<redacted>`.
+
 ### Fixed
 - `image_pull` no longer reports every successful pull as "Invalid JSON response". libpod
   streams the pull as newline-delimited JSON, and the client parsed the whole body as one

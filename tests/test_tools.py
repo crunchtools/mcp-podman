@@ -42,6 +42,69 @@ class TestContainerTools:
             result = await container_inspect("test")
         assert result["Id"] == "abc123"
 
+    async def test_container_inspect_redacts_environment_values(self) -> None:
+        from mcp_podman_crunchtools.tools.containers import container_inspect
+
+        response = _mock_response(
+            json_data={
+                "Id": "abc123",
+                "State": {"OOMKilled": False},
+                "Config": {
+                    "Env": ["API_KEY=sk-live-1", "DATABASE_URL=postgres://u:pw@db/app", "TERM"],
+                    "CreateCommand": [
+                        "podman",
+                        "run",
+                        "-e",
+                        "API_KEY=sk-live-1",
+                        "--env=TOKEN=tok-2",
+                        "-ePASS=pw-3",
+                        "--env",
+                        "HOME",
+                        "--env-file",
+                        "/srv/app/app.env",
+                        "--entrypoint=/bin/app",
+                        "-v",
+                        "/srv/app:/data:Z",
+                        "quay.io/example/app",
+                    ],
+                },
+            }
+        )
+        with _patch_client(response):
+            result = await container_inspect("test")
+        assert result["Config"]["Env"] == [
+            "API_KEY=<redacted>",
+            "DATABASE_URL=<redacted>",
+            "TERM",
+        ]
+        assert result["Config"]["CreateCommand"] == [
+            "podman",
+            "run",
+            "-e",
+            "API_KEY=<redacted>",
+            "--env=TOKEN=<redacted>",
+            "-ePASS=<redacted>",
+            "--env",
+            "HOME",
+            "--env-file",
+            "/srv/app/app.env",
+            "--entrypoint=/bin/app",
+            "-v",
+            "/srv/app:/data:Z",
+            "quay.io/example/app",
+        ]
+        assert result["State"] == {"OOMKilled": False}
+        for value in ("sk-live-1", "pw@db", "tok-2", "pw-3"):
+            assert value not in str(result)
+
+    async def test_container_inspect_without_config_is_unchanged(self) -> None:
+        from mcp_podman_crunchtools.tools.containers import container_inspect
+
+        response = _mock_response(json_data={"Id": "abc123", "Config": None})
+        with _patch_client(response):
+            result = await container_inspect("test")
+        assert result == {"Id": "abc123", "Config": None}
+
     async def test_container_start(self) -> None:
         from mcp_podman_crunchtools.tools.containers import container_start
 

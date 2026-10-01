@@ -12,6 +12,59 @@ from ..models import ContainerCreateInput
 # "host:container[:options]" — a mount spec with an options segment has 3 parts.
 VOLUME_SPEC_WITH_OPTIONS_PARTS = 2
 
+REDACTED = "<redacted>"
+ENV_FLAGS = ("-e", "--env")
+ENV_FLAG_PREFIXES = ("--env=", "-e")
+
+
+def _redact_assignment(assignment: str) -> str:
+    """Turn ``NAME=value`` into ``NAME=<redacted>``; a bare ``NAME`` has no value to hide."""
+    name, separator, _ = assignment.partition("=")
+    return f"{name}={REDACTED}" if separator else assignment
+
+
+def _redact_create_command(command: list[Any]) -> list[str]:
+    """Redact the values ``podman run`` was given with ``-e`` / ``--env``."""
+    redacted: list[str] = []
+    value_follows = False
+    for raw in command:
+        arg = str(raw)
+        if value_follows:
+            redacted.append(_redact_assignment(arg))
+            value_follows = False
+            continue
+        if arg in ENV_FLAGS:
+            value_follows = True
+        elif not arg.startswith("--env-"):
+            for prefix in ENV_FLAG_PREFIXES:
+                if arg.startswith(prefix) and "=" in arg[len(prefix) :]:
+                    arg = prefix + _redact_assignment(arg[len(prefix) :])
+                    break
+        redacted.append(arg)
+    return redacted
+
+
+def _redact_environment(detail: dict[str, Any]) -> dict[str, Any]:
+    """Remove environment values from an inspect document, keeping the names.
+
+    libpod returns every variable with its value in ``Config.Env``, and the
+    full ``podman run`` command, inline ``-e NAME=value`` included, in
+    ``Config.CreateCommand``. A container's environment is where its
+    credentials live, and the caller of this tool is a model. Every value is
+    redacted rather than the secret-looking ones: ``DATABASE_URL`` does not
+    look like a secret by name.
+    """
+    config = detail.get("Config")
+    if not isinstance(config, dict):
+        return detail
+    env = config.get("Env")
+    if isinstance(env, list):
+        config["Env"] = [_redact_assignment(str(entry)) for entry in env]
+    command = config.get("CreateCommand")
+    if isinstance(command, list):
+        config["CreateCommand"] = _redact_create_command(command)
+    return detail
+
 
 async def container_list(
     all_containers: bool = False,
@@ -31,9 +84,9 @@ async def container_list(
 
 
 async def container_inspect(name: str) -> dict[str, Any]:
-    """Get detailed information about a container."""
+    """Get detailed information about a container, with environment values redacted."""
     client = get_client()
-    return await client.get(f"/containers/{name}/json")
+    return _redact_environment(await client.get(f"/containers/{name}/json"))
 
 
 async def container_start(name: str) -> dict[str, Any]:
