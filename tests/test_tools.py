@@ -1,5 +1,7 @@
 """Mocked API tests for all Podman tools."""
 
+from unittest.mock import AsyncMock, patch
+
 import httpx
 import pytest
 
@@ -96,6 +98,19 @@ class TestContainerTools:
         assert result["State"] == {"OOMKilled": False}
         for value in ("sk-live-1", "pw@db", "tok-2", "pw-3"):
             assert value not in str(result)
+
+    async def test_container_name_is_encoded_as_one_path_segment(self) -> None:
+        from mcp_podman_crunchtools.tools.containers import container_inspect
+
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=_mock_response(json_data={"Id": "abc123"}))
+
+        async def mock_get_client(_self: object) -> AsyncMock:
+            return mock_client
+
+        with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
+            await container_inspect("../images/x")
+        assert mock_client.request.call_args.kwargs["url"] == "/containers/..%2Fimages%2Fx/json"
 
     async def test_container_inspect_without_config_is_unchanged(self) -> None:
         from mcp_podman_crunchtools.tools.containers import container_inspect
