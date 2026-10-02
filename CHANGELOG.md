@@ -8,6 +8,19 @@ Entries prior to 2026-09-19 are back-filled from GitHub Release notes (RT #1484)
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-02
+
+### Added
+- `image_prune` takes the options of `podman image prune`: `all` (every image not used
+  by a container, not just dangling ones), `external`, `build_cache`, and `filters`
+  (`until`, `label`, `label!`, `dangling`). With no arguments it still removes only
+  dangling images, which on a host that pulls tagged images reclaims almost nothing.
+  Filter keys outside that set, and values over 255 characters, are rejected.
+
+### Changed
+- `image_prune` allows the request 600 seconds instead of `PODMAN_TIMEOUT`; removing many
+  gigabytes of layers outlasts the default.
+
 ## [1.0.1] - 2026-10-01
 
 ### Security

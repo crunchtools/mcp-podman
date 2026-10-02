@@ -1,5 +1,7 @@
 """Pydantic validation models for write operations."""
 
+from typing import Annotated, Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 MAX_NAME_LENGTH = 255
@@ -7,6 +9,14 @@ MAX_IMAGE_LENGTH = 500
 MAX_COMMAND_LENGTH = 2000
 MAX_ENV_LENGTH = 1000
 MAX_SIGNAL_LENGTH = 20
+MAX_FILTER_VALUE_LENGTH = 255
+MAX_FILTER_VALUES = 20
+
+PruneFilterKey = Literal["until", "label", "label!", "dangling"]
+PruneFilterValues = Annotated[
+    list[Annotated[str, Field(min_length=1, max_length=MAX_FILTER_VALUE_LENGTH)]],
+    Field(min_length=1, max_length=MAX_FILTER_VALUES),
+]
 
 
 class ContainerCreateInput(BaseModel):
@@ -40,4 +50,17 @@ class PodCreateInput(BaseModel):
     infra: bool = Field(default=True, description="Create an infra container")
     share: list[str] | None = Field(
         default=None, description="Namespaces to share (ipc, net, uts, pid)"
+    )
+
+
+class ImagePruneInput(BaseModel):
+    """Validated input for image pruning."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    all: bool = Field(default=False, description="Remove all unused images, not just dangling")
+    external: bool = Field(default=False, description="Remove images used by external containers")
+    build_cache: bool = Field(default=False, description="Remove the persistent build cache")
+    filters: dict[PruneFilterKey, PruneFilterValues] | None = Field(
+        default=None, description="Prune filters (until, label, label!, dangling)"
     )

@@ -275,6 +275,87 @@ class TestImageTools:
             result = await image_prune()
         assert "items" in result
 
+    async def test_image_prune_defaults_to_dangling_only(self) -> None:
+        from mcp_podman_crunchtools.tools.images import image_prune
+
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=_mock_response(json_data=[]))
+
+        async def mock_get_client(_self: object) -> AsyncMock:
+            return mock_client
+
+        with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
+            await image_prune()
+        kwargs = mock_client.request.call_args.kwargs
+        assert kwargs["url"] == "/images/prune"
+        assert kwargs["params"] == {}
+
+    async def test_image_prune_maps_cli_options_to_query_params(self) -> None:
+        from mcp_podman_crunchtools.tools.images import PRUNE_TIMEOUT_SECONDS, image_prune
+
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=_mock_response(json_data=[]))
+
+        async def mock_get_client(_self: object) -> AsyncMock:
+            return mock_client
+
+        with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
+            await image_prune(
+                all=True, external=True, build_cache=True, filters={"until": ["168h"]}
+            )
+        kwargs = mock_client.request.call_args.kwargs
+        assert kwargs["params"] == {
+            "all": "true",
+            "external": "true",
+            "buildcache": "true",
+            "filters": '{"until": ["168h"]}',
+        }
+        assert kwargs["timeout"] == PRUNE_TIMEOUT_SECONDS
+
+    async def test_image_prune_rejects_unknown_filter_key(self) -> None:
+        from mcp_podman_crunchtools.errors import InvalidInputError
+        from mcp_podman_crunchtools.tools.images import image_prune
+
+        with pytest.raises(InvalidInputError, match="filters"):
+            await image_prune(filters={"reference": ["ubi9"]})
+
+    async def test_image_prune_rejects_oversized_filter_value(self) -> None:
+        from mcp_podman_crunchtools.errors import InvalidInputError
+        from mcp_podman_crunchtools.tools.images import image_prune
+
+        with pytest.raises(InvalidInputError, match="at most 255 characters"):
+            await image_prune(filters={"label": ["a" * 256]})
+
+    async def test_image_prune_tool_forwards_its_options(self) -> None:
+        from mcp_podman_crunchtools import server
+
+        tools = {tool.name: tool for tool in await server.mcp.list_tools()}
+        assert set(tools["image_prune_tool"].parameters["properties"]) == {
+            "all",
+            "external",
+            "build_cache",
+            "filters",
+        }
+
+        with patch.object(server, "image_prune", AsyncMock(return_value={})) as prune:
+            await server.image_prune_tool(all=True, filters={"until": ["168h"]})
+        prune.assert_awaited_once_with(
+            all=True, external=False, build_cache=False, filters={"until": ["168h"]}
+        )
+
+    async def test_requests_keep_the_configured_timeout_by_default(self) -> None:
+        from mcp_podman_crunchtools.tools.images import image_list
+
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=_mock_response(json_data=[]))
+
+        async def mock_get_client(_self: object) -> AsyncMock:
+            return mock_client
+
+        with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
+            await image_list()
+        assert mock_client.request.call_args.kwargs["timeout"] is httpx.USE_CLIENT_DEFAULT
+
 
 class TestPodTools:
     """Tests for pod management tools."""
