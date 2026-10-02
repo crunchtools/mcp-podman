@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     name="mcp-podman-crunchtools",
-    version="1.0.1",
+    version="1.1.0",
     instructions=(
         "MCP server for Podman container management via the Podman REST API. "
         "Manages containers, images, pods, networks, volumes, and system info. "
@@ -303,13 +303,31 @@ async def image_rm_tool(name: str, force: bool = False) -> dict[str, Any]:
 
 
 @mcp.tool()
-async def image_prune_tool() -> dict[str, Any]:
-    """Remove unused images.
+async def image_prune_tool(
+    all: bool = False,
+    external: bool = False,
+    build_cache: bool = False,
+    filters: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    """Remove unused images, like `podman image prune`.
+
+    With no arguments only dangling (untagged, unused) images are removed.
+
+    Args:
+        all: Remove every image not used by a container, not just dangling ones (--all)
+        external: Also remove images used only by external containers, e.g. build
+            containers (--external)
+        build_cache: Also remove the persistent build cache from --mount=type=cache
+            (--build-cache)
+        filters: Limit what is pruned (--filter). Keys: "until" (images built before
+            a timestamp or Go duration, e.g. {"until": ["168h"]}; compares the build
+            date, not when the image was pulled or tagged), "label" / "label!"
+            (e.g. {"label": ["stage=ci"]}), "dangling" (["true"] or ["false"])
 
     Returns:
         List of removed image IDs and reclaimed space
     """
-    return await image_prune()
+    return await image_prune(all=all, external=external, build_cache=build_cache, filters=filters)
 
 
 @mcp.tool()

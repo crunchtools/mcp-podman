@@ -65,7 +65,7 @@ claude mcp add mcp-podman-crunchtools \
 | `image_inspect` | Get image details |
 | `image_pull` | Pull from registry |
 | `image_rm` | Remove an image |
-| `image_prune` | Remove unused images |
+| `image_prune` | Remove unused images, with the options of `podman image prune` (`all`, `external`, `build_cache`, `filters`) |
 
 ### Pods (7)
 | Tool | Description |

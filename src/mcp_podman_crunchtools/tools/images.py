@@ -3,7 +3,14 @@
 import json
 from typing import Any
 
+from pydantic import ValidationError
+
 from ..client import get_client
+from ..errors import InvalidInputError
+from ..models import ImagePruneInput
+
+# Removing many gigabytes of layers outlasts the default request timeout.
+PRUNE_TIMEOUT_SECONDS = 600.0
 
 
 async def image_list(
@@ -38,7 +45,28 @@ async def image_rm(name: str, force: bool = False) -> dict[str, Any]:
     return await client.delete(f"/images/{name}", params=params)
 
 
-async def image_prune() -> dict[str, Any]:
-    """Remove unused images."""
+async def image_prune(
+    all: bool = False,
+    external: bool = False,
+    build_cache: bool = False,
+    filters: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    """Remove unused images, with the options of `podman image prune`."""
+    try:
+        validated = ImagePruneInput.model_validate(
+            {"all": all, "external": external, "build_cache": build_cache, "filters": filters}
+        )
+    except ValidationError as e:
+        raise InvalidInputError(str(e)) from e
+
     client = get_client()
-    return await client.post("/images/prune")
+    params: dict[str, Any] = {}
+    if validated.all:
+        params["all"] = "true"
+    if validated.external:
+        params["external"] = "true"
+    if validated.build_cache:
+        params["buildcache"] = "true"
+    if validated.filters:
+        params["filters"] = json.dumps(validated.filters)
+    return await client.post("/images/prune", params=params, timeout=PRUNE_TIMEOUT_SECONDS)

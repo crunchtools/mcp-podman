@@ -73,9 +73,16 @@ class PodmanClient:
         path: str,
         params: dict[str, Any] | None = None,
         json_data: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
-        """Make a POST request."""
-        return await self._request("POST", path, params=params, json_data=json_data)
+        """Make a POST request.
+
+        timeout overrides the configured request timeout for operations that
+        legitimately run long, such as pruning images.
+        """
+        return await self._request(
+            "POST", path, params=params, json_data=json_data, timeout=timeout
+        )
 
     async def delete(
         self,
@@ -91,9 +98,8 @@ class PodmanClient:
         params: dict[str, Any] | None = None,
     ) -> str:
         """Make a GET request and return raw text (for logs)."""
-        client = await self._get_client()
         logger.debug("API request: GET %s", path)
-        response = await self._send(client, "GET", path, params, None)
+        response = await self._send("GET", path, params, None)
         self._check_response(response, path)
         return response.text
 
@@ -103,29 +109,33 @@ class PodmanClient:
         path: str,
         params: dict[str, Any] | None = None,
         json_data: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         """Make an API request with error handling."""
-        client = await self._get_client()
         logger.debug("API request: %s %s", method, path)
-        response = await self._send(client, method, path, params, json_data)
+        response = await self._send(method, path, params, json_data, timeout)
         self._check_response(response, path)
         return self._parse_response(response)
 
     async def _send(
         self,
-        client: httpx.AsyncClient,
         method: str,
         path: str,
         params: dict[str, Any] | None,
         json_data: dict[str, Any] | None,
+        timeout: float | None = None,
     ) -> httpx.Response:
         """Send the HTTP request, raising clean errors on transport failures."""
+        client = await self._get_client()
         try:
             return await client.request(
                 method=method,
                 url=path,
                 params=params,
                 json=json_data,
+                # None would disable the timeout outright, so fall back to the
+                # client's configured one explicitly.
+                timeout=httpx.USE_CLIENT_DEFAULT if timeout is None else timeout,
             )
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             # ConnectTimeout subclasses TimeoutException, not ConnectError, so it
