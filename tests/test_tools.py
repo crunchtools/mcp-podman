@@ -817,6 +817,13 @@ class TestReadOnlyAnnotation:
         with pytest.raises(ToolError, match="not a resource name"):
             await _requests_sent(name, {"name": ".."})
 
+    def test_rejected_long_name_reports_its_length(self) -> None:
+        from mcp_podman_crunchtools.client import path_segment
+        from mcp_podman_crunchtools.errors import InvalidNameError
+
+        with pytest.raises(InvalidNameError, match=r"\.\.\. \(501 characters\) is not"):
+            path_segment("a" * 501)
+
     async def test_image_name_with_registry_path_is_one_segment(self) -> None:
         requests = await _requests_sent(
             "image_inspect_tool", {"name": "quay.io/crunchtools/app:latest"}
