@@ -786,6 +786,35 @@ class TestReadOnlyAnnotation:
         assert "?" not in url
         assert url.count("/") == PATH_SEPARATORS
 
+    @pytest.mark.parametrize("name", NAMED_READS)
+    @pytest.mark.parametrize("dots", ["", ".", ".."])
+    async def test_read_only_tool_rejects_a_dot_segment_name(self, name: str, dots: str) -> None:
+        """quote() leaves dots alone, and httpx would resolve /pods/../json to /json."""
+        from fastmcp.exceptions import ToolError
+
+        from mcp_podman_crunchtools.server import mcp as server
+
+        mock_client = AsyncMock()
+
+        async def mock_get_client(_self: object) -> AsyncMock:
+            return mock_client
+
+        with (
+            patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client),
+            pytest.raises(ToolError, match="not a resource name"),
+        ):
+            await server.call_tool(name, {"name": dots})
+        mock_client.request.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        "name", ["container_rm_tool", "image_rm_tool", "pod_rm_tool", "pod_stop_tool"]
+    )
+    async def test_write_tool_rejects_a_dot_segment_name(self, name: str) -> None:
+        from fastmcp.exceptions import ToolError
+
+        with pytest.raises(ToolError, match="not a resource name"):
+            await _requests_sent(name, {"name": ".."})
+
     async def test_image_name_with_registry_path_is_one_segment(self) -> None:
         requests = await _requests_sent(
             "image_inspect_tool", {"name": "quay.io/crunchtools/app:latest"}

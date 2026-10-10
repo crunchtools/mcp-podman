@@ -2,9 +2,8 @@
 
 import json
 from typing import Any
-from urllib.parse import quote
 
-from ..client import get_client
+from ..client import get_client, path_segment
 
 
 async def volume_list(
@@ -21,4 +20,4 @@ async def volume_list(
 async def volume_inspect(name: str) -> dict[str, Any]:
     """Get detailed information about a volume."""
     client = get_client()
-    return await client.get(f"/volumes/{quote(name, safe='')}/json")
+    return await client.get(f"/volumes/{path_segment(name)}/json")

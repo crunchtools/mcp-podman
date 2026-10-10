@@ -8,6 +8,7 @@ the socket.
 import json
 import logging
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -15,6 +16,7 @@ from .config import get_config
 from .errors import (
     ContainerNotFoundError,
     ImageNotFoundError,
+    InvalidNameError,
     NetworkNotFoundError,
     PodmanApiError,
     PodNotFoundError,
@@ -32,6 +34,17 @@ HTTP_NOT_FOUND = 404
 HTTP_CONFLICT = 409
 
 _client: "PodmanClient | None" = None
+
+# Names that an HTTP client resolves away instead of sending: "" leaves an empty
+# segment, and "." and ".." are dot segments that quote() does not encode.
+UNADDRESSABLE_NAMES = frozenset({"", ".", ".."})
+
+
+def path_segment(name: str) -> str:
+    """Encode a caller-supplied name as exactly one segment of an API path."""
+    if name in UNADDRESSABLE_NAMES:
+        raise InvalidNameError(name)
+    return quote(name, safe="")
 
 
 def get_client() -> "PodmanClient":

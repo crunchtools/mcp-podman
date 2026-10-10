@@ -85,5 +85,12 @@ class InvalidInputError(ToolError):
         super().__init__(f"Invalid input: {message}")
 
 
+class InvalidNameError(InvalidInputError):
+    """A resource name that cannot be sent as one path segment."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"{name!r} is not a resource name")
+
+
 class ConfigurationError(ToolError):
     """Server configuration is invalid."""

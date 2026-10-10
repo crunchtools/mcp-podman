@@ -27,6 +27,9 @@ Entries prior to 2026-09-19 are back-filled from GitHub Release notes (RT #1484)
   container names already were. Unencoded, `../containers/x/healthcheck?` passed
   to an inspect tool addressed `GET /containers/x/healthcheck`, which runs the
   container's health check.
+- A resource name of `.`, `..` or the empty string is rejected before any request
+  is sent, for containers as well. URL-encoding leaves dots alone, and the HTTP
+  client resolved `/pods/../json` to `/json`.
 
 ### Changed
 - Inherits constitution v1.22.0; the workflow pins and the pre-commit hook rev

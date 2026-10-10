@@ -2,11 +2,10 @@
 
 import json
 from typing import Any
-from urllib.parse import quote
 
 from pydantic import ValidationError
 
-from ..client import get_client
+from ..client import get_client, path_segment
 from ..errors import InvalidInputError
 from ..models import ContainerCreateInput
 
@@ -87,31 +86,31 @@ async def container_list(
 async def container_inspect(name: str) -> dict[str, Any]:
     """Get detailed information about a container, with environment values redacted."""
     client = get_client()
-    return _redact_environment(await client.get(f"/containers/{quote(name, safe='')}/json"))
+    return _redact_environment(await client.get(f"/containers/{path_segment(name)}/json"))
 
 
 async def container_start(name: str) -> dict[str, Any]:
     """Start a stopped container."""
     client = get_client()
-    return await client.post(f"/containers/{quote(name, safe='')}/start")
+    return await client.post(f"/containers/{path_segment(name)}/start")
 
 
 async def container_stop(name: str, timeout: int = 10) -> dict[str, Any]:
     """Stop a running container."""
     client = get_client()
-    return await client.post(f"/containers/{quote(name, safe='')}/stop", params={"t": timeout})
+    return await client.post(f"/containers/{path_segment(name)}/stop", params={"t": timeout})
 
 
 async def container_restart(name: str, timeout: int = 10) -> dict[str, Any]:
     """Restart a container."""
     client = get_client()
-    return await client.post(f"/containers/{quote(name, safe='')}/restart", params={"t": timeout})
+    return await client.post(f"/containers/{path_segment(name)}/restart", params={"t": timeout})
 
 
 async def container_kill(name: str, signal: str = "SIGTERM") -> dict[str, Any]:
     """Send a signal to a container."""
     client = get_client()
-    return await client.post(f"/containers/{quote(name, safe='')}/kill", params={"signal": signal})
+    return await client.post(f"/containers/{path_segment(name)}/kill", params={"signal": signal})
 
 
 async def container_rm(name: str, force: bool = False, volumes: bool = False) -> dict[str, Any]:
@@ -122,7 +121,7 @@ async def container_rm(name: str, force: bool = False, volumes: bool = False) ->
         params["force"] = "true"
     if volumes:
         params["v"] = "true"
-    return await client.delete(f"/containers/{quote(name, safe='')}", params=params)
+    return await client.delete(f"/containers/{path_segment(name)}", params=params)
 
 
 async def container_logs(
@@ -140,7 +139,7 @@ async def container_logs(
         params["since"] = since
     if timestamps:
         params["timestamps"] = "true"
-    text = await client.get_text(f"/containers/{quote(name, safe='')}/logs", params=params)
+    text = await client.get_text(f"/containers/{path_segment(name)}/logs", params=params)
     return {"logs": text}
 
 
@@ -150,14 +149,14 @@ async def container_top(name: str, ps_args: str | None = None) -> dict[str, Any]
     params: dict[str, Any] = {}
     if ps_args:
         params["ps_args"] = ps_args
-    return await client.get(f"/containers/{quote(name, safe='')}/top", params=params)
+    return await client.get(f"/containers/{path_segment(name)}/top", params=params)
 
 
 async def container_stats(name: str, stream: bool = False) -> dict[str, Any]:
     """Get container resource usage statistics."""
     client = get_client()
     return await client.get(
-        f"/containers/{quote(name, safe='')}/stats", params={"stream": str(stream).lower()}
+        f"/containers/{path_segment(name)}/stats", params={"stream": str(stream).lower()}
     )
 
 
