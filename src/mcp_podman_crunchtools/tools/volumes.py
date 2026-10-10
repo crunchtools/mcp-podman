@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from urllib.parse import quote
 
 from ..client import get_client
 
@@ -20,4 +21,4 @@ async def volume_list(
 async def volume_inspect(name: str) -> dict[str, Any]:
     """Get detailed information about a volume."""
     client = get_client()
-    return await client.get(f"/volumes/{name}/json")
+    return await client.get(f"/volumes/{quote(name, safe='')}/json")

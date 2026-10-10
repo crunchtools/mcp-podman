@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from urllib.parse import quote
 
 from pydantic import ValidationError
 
@@ -27,7 +28,7 @@ async def image_list(
 async def image_inspect(name: str) -> dict[str, Any]:
     """Get detailed information about an image."""
     client = get_client()
-    return await client.get(f"/images/{name}/json")
+    return await client.get(f"/images/{quote(name, safe='')}/json")
 
 
 async def image_pull(reference: str) -> dict[str, Any]:
@@ -42,7 +43,7 @@ async def image_rm(name: str, force: bool = False) -> dict[str, Any]:
     params: dict[str, Any] = {}
     if force:
         params["force"] = "true"
-    return await client.delete(f"/images/{name}", params=params)
+    return await client.delete(f"/images/{quote(name, safe='')}", params=params)
 
 
 async def image_prune(

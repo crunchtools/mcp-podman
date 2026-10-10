@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from urllib.parse import quote
 
 from ..client import get_client
 
@@ -20,4 +21,4 @@ async def network_list(
 async def network_inspect(name: str) -> dict[str, Any]:
     """Get detailed information about a network."""
     client = get_client()
-    return await client.get(f"/networks/{name}/json")
+    return await client.get(f"/networks/{quote(name, safe='')}/json")

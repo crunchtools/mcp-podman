@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from urllib.parse import quote
 
 from pydantic import ValidationError
 
@@ -24,25 +25,25 @@ async def pod_list(
 async def pod_inspect(name: str) -> dict[str, Any]:
     """Get detailed information about a pod."""
     client = get_client()
-    return await client.get(f"/pods/{name}/json")
+    return await client.get(f"/pods/{quote(name, safe='')}/json")
 
 
 async def pod_start(name: str) -> dict[str, Any]:
     """Start a pod."""
     client = get_client()
-    return await client.post(f"/pods/{name}/start")
+    return await client.post(f"/pods/{quote(name, safe='')}/start")
 
 
 async def pod_stop(name: str, timeout: int = 10) -> dict[str, Any]:
     """Stop a pod."""
     client = get_client()
-    return await client.post(f"/pods/{name}/stop", params={"t": timeout})
+    return await client.post(f"/pods/{quote(name, safe='')}/stop", params={"t": timeout})
 
 
 async def pod_restart(name: str) -> dict[str, Any]:
     """Restart a pod."""
     client = get_client()
-    return await client.post(f"/pods/{name}/restart")
+    return await client.post(f"/pods/{quote(name, safe='')}/restart")
 
 
 async def pod_rm(name: str, force: bool = False) -> dict[str, Any]:
@@ -51,7 +52,7 @@ async def pod_rm(name: str, force: bool = False) -> dict[str, Any]:
     params: dict[str, Any] = {}
     if force:
         params["force"] = "true"
-    return await client.delete(f"/pods/{name}", params=params)
+    return await client.delete(f"/pods/{quote(name, safe='')}", params=params)
 
 
 async def pod_create(

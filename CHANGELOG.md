@@ -8,7 +8,29 @@ Entries prior to 2026-09-19 are back-filled from GitHub Release notes (RT #1484)
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-10
+
+### Added
+- The fourteen tools that only read (`container_list`, `container_inspect`,
+  `container_logs`, `container_stats`, `image_list`, `image_inspect`, `pod_list`,
+  `pod_inspect`, `network_list`, `network_inspect`, `volume_list`, `volume_inspect`,
+  `system_info`, `system_df`) publish `readOnlyHint: true`. A gateway uses it to
+  decide whether an invalid optional argument may be dropped or must refuse the
+  call (crunchtools/constitution#35). `container_top` is a GET but stays
+  unannotated: libpod runs `ps` with the caller's `ps_args`, from the host or
+  through an exec session in the container.
+- Tests pin every registered tool into `READ_ONLY` or `WRITES`, and check that
+  each read-only tool sends only GET requests, with a write tool as the control.
+
+### Fixed
+- Image, pod, network and volume names are URL-encoded as one path segment, as
+  container names already were. Unencoded, `../containers/x/healthcheck?` passed
+  to an inspect tool addressed `GET /containers/x/healthcheck`, which runs the
+  container's health check.
+
 ### Changed
+- Inherits constitution v1.22.0; the workflow pins and the pre-commit hook rev
+  move with it.
 - Constitution is now a v1.18.0 manifest: only repo-specific facts remain;
   fleet and profile rules apply by reference.
 - Constitution validation is pinned via `.github/workflows/constitution.yml`.
