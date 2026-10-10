@@ -23,6 +23,7 @@ from .errors import (
     SocketConnectionError,
     VolumeNotFoundError,
 )
+from .models import MAX_IMAGE_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,11 @@ UNADDRESSABLE_NAMES = frozenset({"", ".", ".."})
 
 
 def path_segment(name: str) -> str:
-    """Encode a caller-supplied name as exactly one segment of an API path."""
-    if name in UNADDRESSABLE_NAMES:
+    """Encode a caller-supplied name as exactly one segment of an API path.
+
+    The bound is the image reference limit, the longest name any resource takes.
+    """
+    if name in UNADDRESSABLE_NAMES or len(name) > MAX_IMAGE_LENGTH:
         raise InvalidNameError(name)
     return quote(name, safe="")
 

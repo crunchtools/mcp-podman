@@ -787,8 +787,10 @@ class TestReadOnlyAnnotation:
         assert url.count("/") == PATH_SEPARATORS
 
     @pytest.mark.parametrize("name", NAMED_READS)
-    @pytest.mark.parametrize("dots", ["", ".", ".."])
-    async def test_read_only_tool_rejects_a_dot_segment_name(self, name: str, dots: str) -> None:
+    @pytest.mark.parametrize(
+        "dots", ["", ".", "..", "a" * 501], ids=["empty", "dot", "dotdot", "long"]
+    )
+    async def test_read_only_tool_rejects_an_unaddressable_name(self, name: str, dots: str) -> None:
         """quote() leaves dots alone, and httpx would resolve /pods/../json to /json."""
         from fastmcp.exceptions import ToolError
 

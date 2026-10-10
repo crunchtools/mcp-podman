@@ -85,11 +85,15 @@ class InvalidInputError(ToolError):
         super().__init__(f"Invalid input: {message}")
 
 
+# How much of a rejected name is echoed back in the error.
+NAME_PREVIEW_LENGTH = 40
+
+
 class InvalidNameError(InvalidInputError):
     """A resource name that cannot be sent as one path segment."""
 
     def __init__(self, name: str) -> None:
-        super().__init__(f"{name!r} is not a resource name")
+        super().__init__(f"{name[:NAME_PREVIEW_LENGTH]!r} is not a resource name")
 
 
 class ConfigurationError(ToolError):
