@@ -630,3 +630,202 @@ class TestToolCount:
 
         tools = await server.list_tools()
         assert len(tools) == 30, f"Expected 30 tools, found {len(tools)}"
+
+
+READ_ONLY = frozenset(
+    {
+        "container_list_tool",
+        "container_inspect_tool",
+        "container_logs_tool",
+        "container_stats_tool",
+        "image_list_tool",
+        "image_inspect_tool",
+        "pod_list_tool",
+        "pod_inspect_tool",
+        "network_list_tool",
+        "network_inspect_tool",
+        "volume_list_tool",
+        "volume_inspect_tool",
+        "system_info_tool",
+        "system_df_tool",
+    }
+)
+WRITES = frozenset(
+    {
+        "container_start_tool",
+        "container_stop_tool",
+        "container_restart_tool",
+        "container_kill_tool",
+        "container_rm_tool",
+        "container_create_tool",
+        "container_prune_tool",
+        # A GET, but libpod runs ps(1) with the caller's ps_args, from the host or
+        # through an exec session inside the container. Not a plain read.
+        "container_top_tool",
+        "image_pull_tool",
+        "image_rm_tool",
+        "image_prune_tool",
+        "pod_start_tool",
+        "pod_stop_tool",
+        "pod_restart_tool",
+        "pod_rm_tool",
+        "pod_create_tool",
+    }
+)
+
+# Arguments for each read-only tool, every optional parameter set so the
+# request each one can build is the one checked.
+READ_ONLY_CALLS: dict[str, dict[str, object]] = {
+    "container_list_tool": {
+        "all_containers": True,
+        "filters": {"name": ["app"]},
+        "limit": 5,
+    },
+    "container_inspect_tool": {"name": "app"},
+    "container_logs_tool": {
+        "name": "app",
+        "tail": 10,
+        "since": "2026-10-01T00:00:00Z",
+        "timestamps": True,
+    },
+    "container_stats_tool": {"name": "app"},
+    "image_list_tool": {"filters": {"reference": ["ubi9"]}},
+    "image_inspect_tool": {"name": "quay.io/crunchtools/app:latest"},
+    "pod_list_tool": {"filters": {"name": ["web"]}},
+    "pod_inspect_tool": {"name": "web"},
+    "network_list_tool": {"filters": {"name": ["podman"]}},
+    "network_inspect_tool": {"name": "podman"},
+    "volume_list_tool": {"filters": {"name": ["data"]}},
+    "volume_inspect_tool": {"name": "data"},
+    "system_info_tool": {},
+    "system_df_tool": {},
+}
+
+SAFE_METHODS = frozenset({"GET", "HEAD"})
+
+# Every read-only tool that puts a caller-supplied name into the request path.
+NAMED_READS = sorted(name for name, args in READ_ONLY_CALLS.items() if "name" in args)
+
+# `?` would end the path and `..` would climb out of the resource, which turns
+# an inspect into GET /containers/x/healthcheck: a GET that runs the health check.
+HOSTILE_NAME = "../containers/x/healthcheck?"
+
+# "/resource/name/action": the name adds no separator of its own.
+PATH_SEPARATORS = 3
+
+
+async def _requests_sent(name: str, args: dict[str, object]) -> list[dict[str, object]]:
+    """Call a registered tool against a mocked socket and return its requests."""
+    from mcp_podman_crunchtools.server import mcp as server
+
+    mock_client = AsyncMock()
+    mock_client.request = AsyncMock(return_value=_mock_response(json_data={"Id": "abc123"}))
+
+    async def mock_get_client(_self: object) -> AsyncMock:
+        return mock_client
+
+    with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
+        await server.call_tool(name, args)
+    return [call.kwargs for call in mock_client.request.await_args_list]
+
+
+class TestReadOnlyAnnotation:
+    """Every registered tool is classified, and the reads really only read."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        _setup_config()
+
+    async def test_every_tool_is_classified(self) -> None:
+        from mcp_podman_crunchtools.server import mcp as server
+
+        tools = await server.list_tools()
+        assert READ_ONLY.isdisjoint(WRITES)
+        assert {tool.name for tool in tools} == READ_ONLY | WRITES
+        annotated = {
+            tool.name
+            for tool in tools
+            if tool.annotations is not None
+            and tool.annotations.model_dump(by_alias=True).get("readOnlyHint") is True
+        }
+        assert annotated == READ_ONLY
+
+    def test_every_read_only_tool_has_a_call(self) -> None:
+        assert set(READ_ONLY_CALLS) == READ_ONLY
+
+    @pytest.mark.parametrize("name", sorted(READ_ONLY))
+    async def test_read_only_tool_sends_only_safe_methods(self, name: str) -> None:
+        requests = await _requests_sent(name, READ_ONLY_CALLS[name])
+        assert requests, f"{name} sent nothing"
+        assert {request["method"] for request in requests} <= SAFE_METHODS
+        assert all(request["json"] is None for request in requests)
+
+    @pytest.mark.parametrize(
+        ("name", "args", "method"),
+        [
+            ("container_stop_tool", {"name": "app"}, "POST"),
+            ("image_rm_tool", {"name": "app"}, "DELETE"),
+        ],
+    )
+    async def test_method_check_sees_a_write(
+        self, name: str, args: dict[str, object], method: str
+    ) -> None:
+        """Control: the same probe reports the unsafe method of a write tool."""
+        requests = await _requests_sent(name, args)
+        assert {request["method"] for request in requests} == {method}
+        assert not {request["method"] for request in requests} <= SAFE_METHODS
+
+    @pytest.mark.parametrize("name", NAMED_READS)
+    async def test_read_only_tool_keeps_a_name_in_one_path_segment(self, name: str) -> None:
+        """A name cannot re-address the GET to another endpoint or add a query."""
+        resource = name.partition("_")[0] + "s"
+        requests = await _requests_sent(name, {"name": HOSTILE_NAME})
+        assert len(requests) == 1
+        url = str(requests[0]["url"])
+        assert url.startswith(f"/{resource}/..%2Fcontainers%2Fx%2Fhealthcheck%3F/")
+        assert "?" not in url
+        assert url.count("/") == PATH_SEPARATORS
+
+    @pytest.mark.parametrize("name", NAMED_READS)
+    @pytest.mark.parametrize(
+        "dots", ["", ".", "..", "a" * 501], ids=["empty", "dot", "dotdot", "long"]
+    )
+    async def test_read_only_tool_rejects_an_unaddressable_name(self, name: str, dots: str) -> None:
+        """quote() leaves dots alone, and httpx would resolve /pods/../json to /json."""
+        from fastmcp.exceptions import ToolError
+
+        from mcp_podman_crunchtools.server import mcp as server
+
+        mock_client = AsyncMock()
+
+        async def mock_get_client(_self: object) -> AsyncMock:
+            return mock_client
+
+        with (
+            patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client),
+            pytest.raises(ToolError, match="not a resource name"),
+        ):
+            await server.call_tool(name, {"name": dots})
+        mock_client.request.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        "name", ["container_rm_tool", "image_rm_tool", "pod_rm_tool", "pod_stop_tool"]
+    )
+    async def test_write_tool_rejects_a_dot_segment_name(self, name: str) -> None:
+        from fastmcp.exceptions import ToolError
+
+        with pytest.raises(ToolError, match="not a resource name"):
+            await _requests_sent(name, {"name": ".."})
+
+    def test_rejected_long_name_reports_its_length(self) -> None:
+        from mcp_podman_crunchtools.client import path_segment
+        from mcp_podman_crunchtools.errors import InvalidNameError
+
+        with pytest.raises(InvalidNameError, match=r"\.\.\. \(501 characters\) is not"):
+            path_segment("a" * 501)
+
+    async def test_image_name_with_registry_path_is_one_segment(self) -> None:
+        requests = await _requests_sent(
+            "image_inspect_tool", {"name": "quay.io/crunchtools/app:latest"}
+        )
+        assert requests[0]["url"] == "/images/quay.io%2Fcrunchtools%2Fapp%3Alatest/json"

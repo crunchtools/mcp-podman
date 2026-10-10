@@ -40,9 +40,14 @@ from .tools import (
 
 logger = logging.getLogger(__name__)
 
+# A gateway drops an invalid optional argument only on a tool annotated read-only;
+# on anything else it refuses the call. Only tools that change nothing on the
+# Podman host get this.
+READ_ONLY = {"readOnlyHint": True}
+
 mcp = FastMCP(
     name="mcp-podman-crunchtools",
-    version="1.1.0",
+    version="1.2.0",
     instructions=(
         "MCP server for Podman container management via the Podman REST API. "
         "Manages containers, images, pods, networks, volumes, and system info. "
@@ -51,7 +56,7 @@ mcp = FastMCP(
 )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def container_list_tool(
     all_containers: bool = False,
     filters: dict[str, list[str]] | None = None,
@@ -70,7 +75,7 @@ async def container_list_tool(
     return await container_list(all_containers=all_containers, filters=filters, limit=limit)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def container_inspect_tool(name: str) -> dict[str, Any]:
     """Get detailed information about a container.
 
@@ -157,7 +162,7 @@ async def container_rm_tool(
     return await container_rm(name, force=force, volumes=volumes)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def container_logs_tool(
     name: str,
     tail: int | None = None,
@@ -192,7 +197,7 @@ async def container_top_tool(name: str, ps_args: str | None = None) -> dict[str,
     return await container_top(name, ps_args=ps_args)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def container_stats_tool(name: str) -> dict[str, Any]:
     """Get container resource usage statistics.
 
@@ -247,7 +252,7 @@ async def container_prune_tool() -> dict[str, Any]:
     return await container_prune()
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def image_list_tool(
     filters: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
@@ -262,7 +267,7 @@ async def image_list_tool(
     return await image_list(filters=filters)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def image_inspect_tool(name: str) -> dict[str, Any]:
     """Get detailed information about an image.
 
@@ -330,7 +335,7 @@ async def image_prune_tool(
     return await image_prune(all=all, external=external, build_cache=build_cache, filters=filters)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def pod_list_tool(
     filters: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
@@ -345,7 +350,7 @@ async def pod_list_tool(
     return await pod_list(filters=filters)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def pod_inspect_tool(name: str) -> dict[str, Any]:
     """Get detailed information about a pod.
 
@@ -433,7 +438,7 @@ async def pod_create_tool(
     return await pod_create(name=name, labels=labels, infra=infra, share=share)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def network_list_tool(
     filters: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
@@ -448,7 +453,7 @@ async def network_list_tool(
     return await network_list(filters=filters)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def network_inspect_tool(name: str) -> dict[str, Any]:
     """Get detailed information about a network.
 
@@ -461,7 +466,7 @@ async def network_inspect_tool(name: str) -> dict[str, Any]:
     return await network_inspect(name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def volume_list_tool(
     filters: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
@@ -476,7 +481,7 @@ async def volume_list_tool(
     return await volume_list(filters=filters)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def volume_inspect_tool(name: str) -> dict[str, Any]:
     """Get detailed information about a volume.
 
@@ -489,7 +494,7 @@ async def volume_inspect_tool(name: str) -> dict[str, Any]:
     return await volume_inspect(name)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def system_info_tool() -> dict[str, Any]:
     """Get Podman system information.
 
@@ -499,7 +504,7 @@ async def system_info_tool() -> dict[str, Any]:
     return await system_info()
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def system_df_tool() -> dict[str, Any]:
     """Get Podman disk usage.
 
