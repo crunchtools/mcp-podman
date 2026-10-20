@@ -17,7 +17,7 @@ RUN mkdir -p /staging/usr/bin /staging/usr/lib64 && \
 FROM quay.io/hummingbird/python:3.14-fips
 
 LABEL name="mcp-podman-crunchtools" \
-      version="1.2.0" \
+      version="1.3.0" \
       summary="MCP server for Podman container management via the Podman REST API" \
       maintainer="crunchtools.com" \
       org.opencontainers.image.source="https://github.com/crunchtools/mcp-podman" \
