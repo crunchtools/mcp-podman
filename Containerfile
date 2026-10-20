@@ -1,4 +1,4 @@
-FROM quay.io/hummingbird/python:latest-fips-builder AS builder
+FROM quay.io/hummingbird/python:3.14-fips-builder AS builder
 USER 0
 RUN dnf install -y --setopt=install_weak_deps=False systemd && dnf clean all
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN mkdir -p /staging/usr/bin /staging/usr/lib64 && \
     xargs -I{} cp -L {} /staging/usr/lib64/ 2>/dev/null || true && \
     find /usr/lib64/systemd -name 'libsystemd-shared*' -exec cp {} /staging/usr/lib64/ \;
 
-FROM quay.io/hummingbird/python:latest-fips
+FROM quay.io/hummingbird/python:3.14-fips
 
 LABEL name="mcp-podman-crunchtools" \
       version="1.2.0" \
