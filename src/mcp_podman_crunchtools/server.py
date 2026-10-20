@@ -47,7 +47,7 @@ READ_ONLY = {"readOnlyHint": True}
 
 mcp = FastMCP(
     name="mcp-podman-crunchtools",
-    version="1.2.0",
+    version="1.3.0",
     instructions=(
         "MCP server for Podman container management via the Podman REST API. "
         "Manages containers, images, pods, networks, volumes, and system info. "
