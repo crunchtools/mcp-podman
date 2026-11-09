@@ -47,7 +47,7 @@ READ_ONLY = {"readOnlyHint": True}
 
 mcp = FastMCP(
     name="mcp-podman-crunchtools",
-    version="1.3.1",
+    version="1.4.0",
     instructions=(
         "MCP server for Podman container management via the Podman REST API. "
         "Manages containers, images, pods, networks, volumes, and system info. "
@@ -173,7 +173,10 @@ async def container_logs_tool(
 
     Args:
         name: Container name or ID
-        tail: Number of lines from the end of the logs
+        tail: Number of lines from the end of the logs. Defaults to the last
+            200; Podman's own default is the whole history, which for a
+            long-running container is megabytes. Ask for more to go further
+            back.
         since: Show logs since timestamp (RFC3339, e.g. "YYYY-MM-DDThh:mm:ssZ")
         timestamps: Add timestamps to each log line
 

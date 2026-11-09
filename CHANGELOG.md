@@ -8,6 +8,45 @@ Entries prior to 2026-09-19 are back-filled from GitHub Release notes (RT #1484)
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-09
+
+### Fixed
+
+- **Container logs were unbounded.** `get_text` read the whole response into
+  the process and the only limit was a `content-length` check — which Podman's
+  logs endpoint never sends, because it answers chunked. A container that had
+  been up for a week returned its entire history. The body is now read in
+  bounded pieces, measured before each chunk is copied in, and
+  `container_logs` asks for the last 200 lines unless told otherwise. Podman's
+  own default is everything; a default tail makes the response cap a backstop
+  rather than the normal exit. Pass a larger `tail` to go further back.
+
+- **An error that is not Podman's own JSON shape says what it was.** A proxy or
+  an SELinux denial in front of the socket answers with HTML, and that arrived
+  as `Unknown error` or 200 bare characters with no indication of where it came
+  from. Such a body is now quoted, bounded, alongside the method, URL, status
+  and content-type of the request it answered. Podman's `cause`/`message`
+  shape is still used verbatim when present.
+
+### Added
+
+- **The client says what it is.** Requests carry
+  `User-Agent: mcp-podman-crunchtools/<version> (+<repo url>)`, with the
+  version read from installed package metadata. The socket on the other end
+  does not challenge a nameless agent, but an exception for one client is a
+  branch in the fleet's rule that rots, and `podman --log-level=debug` showing
+  which process asked is worth the one line.
+
+### Changed
+
+- Client tests drive `build_request` and `send` rather than `request`, because
+  the client now streams; the contract tests in `tests/test_http_contract.py`
+  drive a real `httpx.AsyncClient` over `httpx.MockTransport`, since the agent
+  string and the ceiling are the client's own behaviour.
+
+- Inherits constitution v1.36.0, whose MCP Server profile 1.8.0 states the
+  outbound HTTP contract (RT #1601).
+
 ## [1.3.1] - 2026-10-31
 
 ### Security
