@@ -55,10 +55,23 @@ def _mock_response(
     )
 
 
-def _patch_client(response: httpx.Response) -> Any:
-    """Patch httpx.AsyncClient to return the given response."""
+def _mock_client(**kwargs: Any) -> AsyncMock:
+    """A stand-in for the client, whose `build_request` builds a real request.
+
+    The client now streams: `build_request` then `send(..., stream=True)`. A
+    real `httpx.Client` builds the request so that assertions on the url,
+    params and timeout a caller passed still mean what they did, while `send`
+    is what each test scripts.
+    """
+    builder = httpx.Client(base_url="http://podman/v5.0.0/libpod")
     mock_client = AsyncMock()
-    mock_client.request = AsyncMock(return_value=response)
+    mock_client.build_request = MagicMock(side_effect=builder.build_request)
+    mock_client.send = AsyncMock(**kwargs)
+    return mock_client
+
+
+def _patching_get_client(mock_client: AsyncMock) -> Any:
+    """Hand every `PodmanClient` the given stand-in."""
 
     async def mock_get_client(_self: Any) -> AsyncMock:
         return mock_client
@@ -67,17 +80,13 @@ def _patch_client(response: httpx.Response) -> Any:
         "mcp_podman_crunchtools.client.PodmanClient._get_client",
         mock_get_client,
     )
+
+
+def _patch_client(response: httpx.Response) -> Any:
+    """Patch the client so every request is answered with the given response."""
+    return _patching_get_client(_mock_client(return_value=response))
 
 
 def _patch_client_raising(exc: Exception) -> Any:
-    """Patch httpx.AsyncClient so every request raises the given exception."""
-    mock_client = AsyncMock()
-    mock_client.request = AsyncMock(side_effect=exc)
-
-    async def mock_get_client(_self: Any) -> AsyncMock:
-        return mock_client
-
-    return patch(
-        "mcp_podman_crunchtools.client.PodmanClient._get_client",
-        mock_get_client,
-    )
+    """Patch the client so every request raises the given exception."""
+    return _patching_get_client(_mock_client(side_effect=exc))

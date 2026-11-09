@@ -9,6 +9,9 @@ from ..client import get_client, path_segment
 from ..errors import InvalidInputError
 from ..models import ContainerCreateInput
 
+# Podman defaults to the entire log history; this is what we ask for instead.
+DEFAULT_LOG_TAIL = 200
+
 # "host:container[:options]" — a mount spec with an options segment has 3 parts.
 VOLUME_SPEC_WITH_OPTIONS_PARTS = 2
 
@@ -130,11 +133,20 @@ async def container_logs(
     since: str | None = None,
     timestamps: bool = False,
 ) -> dict[str, Any]:
-    """Get container logs."""
+    """Get container logs, the last DEFAULT_LOG_TAIL lines unless asked otherwise.
+
+    Podman's default is the whole history. For a container that has been up for
+    a week that is megabytes over a socket, and the only thing standing between
+    it and the process was a `content-length` check the chunked logs endpoint
+    never sends. A default tail makes the response cap a backstop rather than
+    the normal exit; ask for a larger `tail` to go further back.
+    """
     client = get_client()
-    params: dict[str, Any] = {"stdout": "true", "stderr": "true"}
-    if tail is not None:
-        params["tail"] = str(tail)
+    params: dict[str, Any] = {
+        "stdout": "true",
+        "stderr": "true",
+        "tail": str(DEFAULT_LOG_TAIL if tail is None else tail),
+    }
     if since:
         params["since"] = since
     if timestamps:

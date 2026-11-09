@@ -2,9 +2,9 @@
 
 > **Version:** 0.2.0
 > **Ratified:** 2026-06-14
-> **Amended:** 2026-10-02
+> **Amended:** 2026-11-09
 > **Status:** Active
-> **Inherits:** [crunchtools/constitution](https://github.com/crunchtools/constitution) v1.31.0
+> **Inherits:** [crunchtools/constitution](https://github.com/crunchtools/constitution) v1.36.0
 > **Profile:** MCP Server
 
 This file holds what is specific to mcp-podman. The fleet rules and the MCP
@@ -21,7 +21,10 @@ are not restated here.
 - **Input limits:** container, image and pod names are validated before any
   API call; every user-provided string is length-bounded.
 - **API:** the Podman REST API over a Unix domain socket, never a network
-  listener. Responses above 10 MB are rejected, requests time out, and path
+  listener. Responses above 10 MB are rejected while reading, not from the
+  `content-length` header the chunked logs endpoint never sends; container logs
+  default to the last 200 lines so that cap is a backstop rather than the
+  normal exit. Requests time out, and path
   parameters are URL-encoded to prevent traversal.
 - **Surface:** pure Podman REST API wrappers. No filesystem access, shell
   execution or code evaluation.

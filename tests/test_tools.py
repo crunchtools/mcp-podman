@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from tests.conftest import (
+    _mock_client,
     _mock_config,
     _mock_response,
     _patch_client,
@@ -102,15 +103,17 @@ class TestContainerTools:
     async def test_container_name_is_encoded_as_one_path_segment(self) -> None:
         from mcp_podman_crunchtools.tools.containers import container_inspect
 
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(return_value=_mock_response(json_data={"Id": "abc123"}))
+        mock_client = _mock_client()
+        mock_client.send = AsyncMock(return_value=_mock_response(json_data={"Id": "abc123"}))
 
         async def mock_get_client(_self: object) -> AsyncMock:
             return mock_client
 
         with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
             await container_inspect("../images/x")
-        assert mock_client.request.call_args.kwargs["url"] == "/containers/..%2Fimages%2Fx/json"
+        assert (
+            mock_client.build_request.call_args.kwargs["url"] == "/containers/..%2Fimages%2Fx/json"
+        )
 
     async def test_container_inspect_without_config_is_unchanged(self) -> None:
         from mcp_podman_crunchtools.tools.containers import container_inspect
@@ -278,23 +281,23 @@ class TestImageTools:
     async def test_image_prune_defaults_to_dangling_only(self) -> None:
         from mcp_podman_crunchtools.tools.images import image_prune
 
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(return_value=_mock_response(json_data=[]))
+        mock_client = _mock_client()
+        mock_client.send = AsyncMock(return_value=_mock_response(json_data=[]))
 
         async def mock_get_client(_self: object) -> AsyncMock:
             return mock_client
 
         with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
             await image_prune()
-        kwargs = mock_client.request.call_args.kwargs
+        kwargs = mock_client.build_request.call_args.kwargs
         assert kwargs["url"] == "/images/prune"
         assert kwargs["params"] == {}
 
     async def test_image_prune_maps_cli_options_to_query_params(self) -> None:
         from mcp_podman_crunchtools.tools.images import PRUNE_TIMEOUT_SECONDS, image_prune
 
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(return_value=_mock_response(json_data=[]))
+        mock_client = _mock_client()
+        mock_client.send = AsyncMock(return_value=_mock_response(json_data=[]))
 
         async def mock_get_client(_self: object) -> AsyncMock:
             return mock_client
@@ -303,7 +306,7 @@ class TestImageTools:
             await image_prune(
                 all=True, external=True, build_cache=True, filters={"until": ["168h"]}
             )
-        kwargs = mock_client.request.call_args.kwargs
+        kwargs = mock_client.build_request.call_args.kwargs
         assert kwargs["params"] == {
             "all": "true",
             "external": "true",
@@ -346,15 +349,15 @@ class TestImageTools:
     async def test_requests_keep_the_configured_timeout_by_default(self) -> None:
         from mcp_podman_crunchtools.tools.images import image_list
 
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(return_value=_mock_response(json_data=[]))
+        mock_client = _mock_client()
+        mock_client.send = AsyncMock(return_value=_mock_response(json_data=[]))
 
         async def mock_get_client(_self: object) -> AsyncMock:
             return mock_client
 
         with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
             await image_list()
-        assert mock_client.request.call_args.kwargs["timeout"] is httpx.USE_CLIENT_DEFAULT
+        assert mock_client.build_request.call_args.kwargs["timeout"] is httpx.USE_CLIENT_DEFAULT
 
 
 class TestPodTools:
@@ -562,7 +565,7 @@ class TestClientErrorHandling:
         response.headers["content-length"] = str(11 * 1024 * 1024)
         with (
             _patch_client(response),
-            pytest.raises(PodmanApiError, match="Response too large"),
+            pytest.raises(PodmanApiError, match="over the 10485760 byte limit"),
         ):
             await container_logs("test")
 
@@ -718,15 +721,17 @@ async def _requests_sent(name: str, args: dict[str, object]) -> list[dict[str, o
     """Call a registered tool against a mocked socket and return its requests."""
     from mcp_podman_crunchtools.server import mcp as server
 
-    mock_client = AsyncMock()
-    mock_client.request = AsyncMock(return_value=_mock_response(json_data={"Id": "abc123"}))
+    mock_client = _mock_client()
+    mock_client.send = AsyncMock(return_value=_mock_response(json_data={"Id": "abc123"}))
 
     async def mock_get_client(_self: object) -> AsyncMock:
         return mock_client
 
     with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
         await server.call_tool(name, args)
-    return [call.kwargs for call in mock_client.request.await_args_list]
+    # What the caller asked for, which is what these tests are about: the
+    # method, the path and the params. `send` now takes a built request object.
+    return [call.kwargs for call in mock_client.build_request.call_args_list]
 
 
 class TestReadOnlyAnnotation:
@@ -796,7 +801,7 @@ class TestReadOnlyAnnotation:
 
         from mcp_podman_crunchtools.server import mcp as server
 
-        mock_client = AsyncMock()
+        mock_client = _mock_client()
 
         async def mock_get_client(_self: object) -> AsyncMock:
             return mock_client
@@ -806,7 +811,7 @@ class TestReadOnlyAnnotation:
             pytest.raises(ToolError, match="not a resource name"),
         ):
             await server.call_tool(name, {"name": dots})
-        mock_client.request.assert_not_awaited()
+        mock_client.send.assert_not_awaited()
 
     @pytest.mark.parametrize(
         "name", ["container_rm_tool", "image_rm_tool", "pod_rm_tool", "pod_stop_tool"]
@@ -829,3 +834,40 @@ class TestReadOnlyAnnotation:
             "image_inspect_tool", {"name": "quay.io/crunchtools/app:latest"}
         )
         assert requests[0]["url"] == "/images/quay.io%2Fcrunchtools%2Fapp%3Alatest/json"
+
+
+class TestLogTail:
+    """Podman's default is the whole history; ours is the last 200 lines."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        _setup_config()
+
+    async def test_logs_ask_for_a_tail_by_default(self) -> None:
+        from mcp_podman_crunchtools.tools.containers import DEFAULT_LOG_TAIL, container_logs
+
+        mock_client = _mock_client()
+        mock_client.send = AsyncMock(return_value=_mock_response(text="a line"))
+
+        async def mock_get_client(_self: object) -> AsyncMock:
+            return mock_client
+
+        with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
+            await container_logs("test")
+
+        params = mock_client.build_request.call_args.kwargs["params"]
+        assert params["tail"] == str(DEFAULT_LOG_TAIL)
+
+    async def test_an_explicit_tail_is_passed_through(self) -> None:
+        from mcp_podman_crunchtools.tools.containers import container_logs
+
+        mock_client = _mock_client()
+        mock_client.send = AsyncMock(return_value=_mock_response(text="a line"))
+
+        async def mock_get_client(_self: object) -> AsyncMock:
+            return mock_client
+
+        with patch("mcp_podman_crunchtools.client.PodmanClient._get_client", mock_get_client):
+            await container_logs("test", tail=5000)
+
+        assert mock_client.build_request.call_args.kwargs["params"]["tail"] == "5000"
