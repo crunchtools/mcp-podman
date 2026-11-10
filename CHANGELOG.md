@@ -8,6 +8,19 @@ Entries prior to 2026-09-19 are back-filled from GitHub Release notes (RT #1484)
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-10
+
+### Fixed
+
+- **The image installed whatever pip resolved today, not what CI tested.**
+  `pip install .` reads only `pyproject.toml`'s floor-pins, so a transitive
+  dependency could drift upward between a green CI run and the image build
+  with no version ever re-tested. A `lock` stage now runs `uv export` against
+  the committed, Dependabot-maintained `uv.lock` to produce a frozen
+  `requirements.txt`, and the builder installs that with `--no-deps` before
+  installing the project itself, also with `--no-deps`, so pip cannot
+  re-resolve anything. Part of RT#1564.
+
 ## [1.4.0] - 2026-11-09
 
 ### Fixed
